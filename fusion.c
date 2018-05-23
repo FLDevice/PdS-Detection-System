@@ -33,14 +33,15 @@
 //BUFFER IN CUI SALVARE I DATI DA INVIARE AL SERVER
 struct buffer {
 	unsigned timestamp:32;
-	unsigned channel:4;
+	unsigned channel:8;
 	uint8_t seq_ctl[2];
 	signed rssi:8;
 	uint8_t addr[6];
+	uint8_t ssid_length;
 	uint8_t ssid[32];
 };
 
-struct buffer buf[100];
+struct buffer *buf;
 int count = 0;
 
 typedef struct {
@@ -235,42 +236,32 @@ void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type) {
 	if( hdr->frame_ctrl[0] != 0x40) //tengo solo i PROBE REQUEST
 		return;
 
-	for (int j=0; j<32; j++)
-		buf[count].ssid[j] = '\0'; //azzero ssid
+	buf = malloc(sizeof(struct buffer));
 
-	buf[count].timestamp = ppkt->rx_ctrl.timestamp;
-	buf[count].channel = ppkt->rx_ctrl.channel;
-	buf[count].seq_ctl[0] = hdr->seq_ctl[0]; buf[count].seq_ctl[1] = hdr->seq_ctl[1];
-	buf[count].rssi = ppkt->rx_ctrl.rssi;
+	buf->timestamp = ppkt->rx_ctrl.timestamp;
+	buf->channel = ppkt->rx_ctrl.channel;
+	buf->seq_ctl[0] = hdr->seq_ctl[0]; buf->seq_ctl[1] = hdr->seq_ctl[1];
+	buf->rssi = ppkt->rx_ctrl.rssi;
 	for (int j=0; j<6; j++)
-		buf[count].addr[j] = hdr->addr2[j];
-	int c = 0;
-	int i = 2;
-	while (((char)(ipkt->payload[i]) > ' ') && ((char)(ipkt->payload[i]) < '~') && (c < 32)) {
-		buf[count].ssid[i] = (char)ipkt->payload[i];
-		i++;
-		c++;
-	}
+		buf->addr[j] = hdr->addr2[j];
+	buf->ssid_length = ipkt->payload[1];
+	for (int i=0; i<buf->ssid_length; i++)
+		buf->ssid[i] = (char)ipkt->payload[i+2];
 
 	printf("%08d  PROBE  CHAN=%02d,  SEQ=%02x%02x,  RSSI=%02d, "
 			" ADDR=%02x:%02x:%02x:%02x:%02x:%02x,  " ,
-			buf[count].timestamp,
-			buf[count].channel,
-			buf[count].seq_ctl[0], buf[count].seq_ctl[1],
-			buf[count].rssi,
-			buf[count].addr[0],buf[count].addr[1],buf[count].addr[2],
-			buf[count].addr[3],buf[count].addr[4],buf[count].addr[5]
+			buf->timestamp,
+			buf->channel,
+			buf->seq_ctl[0], buf->seq_ctl[1],
+			buf->rssi,
+			buf->addr[0],buf->addr[1],buf->addr[2],
+			buf->addr[3],buf->addr[4],buf->addr[5]
 	);
 	printf("SSID=");
-	c = 0;
-	i = 2;
-	while (((char)(buf[count].ssid[i]) > ' ') && ((char)(buf[count].ssid[i]) < '~') && (c < 32)) {
-		printf("%c", (char)buf[count].ssid[i]);
-		i++;
-		c++;
-	}
+	for (int i=0; i<buf->ssid_length; i++)
+		printf("%c", (char)buf->ssid[i]);
+	printf("\n");
 
 	count++;
-
-	printf("\n");
+	buf++;
 }
