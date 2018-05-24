@@ -298,7 +298,7 @@ void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type) {
 	buf->ssid_length = ipkt->payload[1];
 	for (int i=0; i<buf->ssid_length; i++)
 		buf->ssid[i] = (char)ipkt->payload[i+2];
-	for (int i=0, j=packet_length-(buf->ssid_length); i<4; i++, j++)
+	for (int i=0, j=packet_length-4; i<4; i++, j++)
 			buf->crc[i] = ipkt->payload[j];
 
 	printf("%08d  PROBE  CHAN=%02d,  SEQ=%02x%02x,  RSSI=%02d, "
@@ -321,26 +321,6 @@ void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type) {
 
 	count++;
 	buf++;
-	/*
-	printf("%08d  PROBE  CHAN=%02d,  SEQ=%02x%02x,  RSSI=%02d, "
-		" ADDR=%02x:%02x:%02x:%02x:%02x:%02x,  " ,
-		ppkt->rx_ctrl.timestamp,
-		ppkt->rx_ctrl.channel,
-		hdr->seq_ctl[0], hdr->seq_ctl[1],
-		ppkt->rx_ctrl.rssi,
-		// ADDR2
-		hdr->addr2[0],hdr->addr2[1],hdr->addr2[2],
-		hdr->addr2[3],hdr->addr2[4],hdr->addr2[5]
-	);
-	printf("SSID=");
-	c = 0;
-	i = 2;
-	while (((char)(ipkt->payload[i]) > ' ') && ((char)(ipkt->payload[i]) < '~') && (c < 32)) {
-		printf("%c", (char)ipkt->payload[i]);
-		i++;
-		c++;
-	}
-	printf("\n"); */
 }
 
 
