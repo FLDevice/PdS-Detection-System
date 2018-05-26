@@ -23,6 +23,7 @@
 #define PASSPHARSE "bollicina27"
 #define MESSAGE "HelloTCPServer"
 #define TCPServerIP "192.168.137.1"
+#define TCPServerPort 3010
 // Packet Sniffing
 #define	LED_GPIO_PIN					GPIO_NUM_4
 #define	WIFI_CHANNEL_MAX				(13)
@@ -43,7 +44,7 @@ struct buffer {
 	uint8_t crc[4];
 };
 
-struct buffer *buf;
+struct buffer buf[100];
 int count = 0;
 
 typedef struct {
@@ -85,6 +86,8 @@ static esp_err_t event_handler(void *ctx, system_event_t *event);
 static void wifi_sniffer_set_channel(uint8_t channel);
 static void wifi_sniffer_packet_handler(void *buff, wifi_promiscuous_pkt_type_t type);
 void wifi_sniffer_init(void);
+void print_proberequest(struct buffer* buf);
+ssize_t send_probe_buffer(int sock);
 
 void wifi_connect(){
     wifi_config_t cfg = {
@@ -128,54 +131,64 @@ void tcp_client(void *pvParam){
     struct sockaddr_in tcpServerAddr;
     tcpServerAddr.sin_addr.s_addr = inet_addr(TCPServerIP);
     tcpServerAddr.sin_family = AF_INET;
-    tcpServerAddr.sin_port = htons( 3010 );
+    tcpServerAddr.sin_port = htons(TCPServerPort);
     int s, r;
-
     char recv_buf[64];
 
     while(1){
     	xEventGroupWaitBits(wifi_event_group,CONNECTED_BIT,false,true,portMAX_DELAY);
 		s = socket(AF_INET, SOCK_STREAM, 0);
 		if(s < 0) {
-			ESP_LOGE(TAG, "... Failed to allocate socket.\n");
+			ESP_LOGE(TAG, "Failed to allocate socket");
 			vTaskDelay(1000 / portTICK_PERIOD_MS);
 			continue;
 		}
-		ESP_LOGI(TAG, "... allocated socket\n");
+		ESP_LOGI(TAG, "Socket allocated");
 		 if(connect(s, (struct sockaddr *)&tcpServerAddr, sizeof(tcpServerAddr)) != 0) {
-			ESP_LOGE(TAG, "... socket connect failed errno=%d \n", errno);
+			ESP_LOGE(TAG, "Socket connect failed, errno=%d\n", errno);
 			close(s);
 			vTaskDelay(4000 / portTICK_PERIOD_MS);
 			continue;
 		}
-		ESP_LOGI(TAG, "... connected \n");
+		ESP_LOGI(TAG, "Connected to the server");
 
         if( write(s , MESSAGE , strlen(MESSAGE)) < 0)
         {
-            ESP_LOGE(TAG, "... Send failed \n");
+            ESP_LOGE(TAG, "Send failed");
             close(s);
             vTaskDelay(4000 / portTICK_PERIOD_MS);
             continue;
-        }
-        ESP_LOGI(TAG, "... socket send success");
+        }/*
+		ssize_t send_res;
+		if((send_res = send_probe_buffer(s)) < 0){
+			ESP_LOGE(TAG, "Send failed");
+			close(s);
+			vTaskDelay(4000 / portTICK_PERIOD_MS);
+			continue;
+		}
+        ESP_LOGI(TAG, "Socket send success");
 
-        do {
-            bzero(recv_buf, sizeof(recv_buf));
-            r = read(s, recv_buf, strlen(MESSAGE));
-            printf("received from server: ");
-            for(int i = 0; i < r; i++) {
-                putchar(recv_buf[i]);
-            }
-            printf("\n");
-        } while(r < strlen(MESSAGE));
+        if(send_res != 0){*/
+			do {
+				bzero(recv_buf, sizeof(recv_buf));
+				r = read(s, recv_buf, strlen(MESSAGE));
+				printf("Received from server: ");
+				for(int i = 0; i < r; i++) {
+					putchar(recv_buf[i]);
+				}
+				printf("\n");
+			} while(r < strlen(MESSAGE));
 
-        ESP_LOGI(TAG, "... done reading from socket. Last read return=%d errno=%d\r\n", r, errno);
+			ESP_LOGI(TAG, "Done reading from socket. Last read return=%d errno=%d\r", r, errno);
+        //}
 
         close(s);
-        ESP_LOGI(TAG, "... new request in 5 seconds");
+        ESP_LOGI(TAG, "New request in 5 seconds");
+        for(int i = 0; i < count; i++)
+        	print_proberequest(&(buf[i]));
         vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
-    ESP_LOGI(TAG, "...tcp_client task closed\n");
+    ESP_LOGI(TAG, "tcp_client task closed");
 }
 
 void app_main()
@@ -242,20 +255,35 @@ void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type) {
 
 	int packet_length = ppkt->rx_ctrl.sig_len;
 
-	buf = malloc(sizeof(struct buffer));
+	struct buffer* b = malloc(sizeof(struct buffer));
 
-	buf->timestamp = ppkt->rx_ctrl.timestamp;
-	buf->channel = ppkt->rx_ctrl.channel;
-	buf->seq_ctl[0] = hdr->seq_ctl[0]; buf->seq_ctl[1] = hdr->seq_ctl[1];
-	buf->rssi = ppkt->rx_ctrl.rssi;
+	b->timestamp = ppkt->rx_ctrl.timestamp;
+	b->channel = ppkt->rx_ctrl.channel;
+	b->seq_ctl[0] = hdr->seq_ctl[0]; b->seq_ctl[1] = hdr->seq_ctl[1];
+	b->rssi = ppkt->rx_ctrl.rssi;
 	for (int j=0; j<6; j++)
-		buf->addr[j] = hdr->addr2[j];
-	buf->ssid_length = ipkt->payload[1];
-	for (int i=0; i<buf->ssid_length; i++)
-		buf->ssid[i] = (char)ipkt->payload[i+2];
+		b->addr[j] = hdr->addr2[j];
+	b->ssid_length = ipkt->payload[1];
+	for (int i=0; i<b->ssid_length; i++)
+		b->ssid[i] = (char)ipkt->payload[i+2];
 	for (int i=0, j=packet_length-4; i<4; i++, j++)
-				buf->crc[i] = ipkt->payload[j];
+		b->crc[i] = ipkt->payload[j];
 
+	print_proberequest(buf);
+
+	buf[count] = *b;
+	count++;
+}
+
+
+ssize_t send_probe_buffer(int sock){
+	if (count == 0)
+		return 0;
+	else
+		return write(sock, buf, sizeof(struct buffer)*count);
+}
+
+void print_proberequest(struct buffer* buf){
 	printf("%08d  PROBE  CHAN=%02d,  SEQ=%02x%02x,  RSSI=%02d, "
 			" ADDR=%02x:%02x:%02x:%02x:%02x:%02x,  " ,
 			buf->timestamp,
@@ -272,6 +300,4 @@ void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type) {
 	for (int i=0; i<4; i++)
 		printf("%02x", buf->crc[i]);
 	printf("\n");
-	count++;
-	buf++;
 }
