@@ -29,6 +29,7 @@
 #define	WIFI_CHANNEL_MAX				(13)
 #define	WIFI_CHANNEL_SWITCH_INTERVAL	(500)
 #define PROBE_REQUEST_SUBTYPE			0x40
+#define PACKET_SIZE 52
 
 /***  Structs for packet sniffing***/
 
@@ -36,7 +37,7 @@
 struct buffer {
 	unsigned timestamp:32;
 	unsigned channel:8;
-	uint8_t seq_ctl[2];
+	unsigned seq_ctl:16;
 	signed rssi:8;
 	uint8_t addr[6];
 	uint8_t ssid_length;
@@ -45,7 +46,7 @@ struct buffer {
 };
 
 struct buffer buf[100];
-int count = 0;
+uint8_t count = 0;
 
 typedef struct {
 	uint8_t frame_ctrl[2];
@@ -56,7 +57,8 @@ typedef struct {
 	uint8_t addr2[6]; /* sender address */
 	uint8_t addr3[6]; /* filtering address */
 	//unsigned sequence_ctrl:16;
-	uint8_t seq_ctl[2];
+	/*uint8_t seq_ctl[2];*/
+	unsigned seq_ctl:16;
 	//uint8_t addr4[6]; /* optional */
 } wifi_ieee80211_mac_hdr_t;
 
@@ -88,6 +90,7 @@ static void wifi_sniffer_packet_handler(void *buff, wifi_promiscuous_pkt_type_t 
 void wifi_sniffer_init(void);
 void print_proberequest(struct buffer* buf);
 ssize_t send_probe_buffer(int sock);
+void clear_probe_buffer(void);
 
 void wifi_connect(){
     wifi_config_t cfg = {
@@ -151,41 +154,53 @@ void tcp_client(void *pvParam){
 			continue;
 		}
 		ESP_LOGI(TAG, "Connected to the server");
-
+		/*
         if( write(s , MESSAGE , strlen(MESSAGE)) < 0)
         {
             ESP_LOGE(TAG, "Send failed");
             close(s);
             vTaskDelay(4000 / portTICK_PERIOD_MS);
             continue;
-        }/*
-		ssize_t send_res;
-		if((send_res = send_probe_buffer(s)) < 0){
-			ESP_LOGE(TAG, "Send failed");
+        }*/
+
+		char c = count + '0';
+		if(write(s, &c, 1) != 1){
+			ESP_LOGE(TAG, "Send of *count* failed");
 			close(s);
 			vTaskDelay(4000 / portTICK_PERIOD_MS);
 			continue;
 		}
+
+		ssize_t send_res;
+		if((send_res = send_probe_buffer(s)) < 0){
+			ESP_LOGE(TAG, "Send of buffer failed");
+			close(s);
+			vTaskDelay(4000 / portTICK_PERIOD_MS);
+			continue;
+		}
+		/* WARN!!! Does it require a lock? */
+		clear_probe_buffer();
         ESP_LOGI(TAG, "Socket send success");
 
-        if(send_res != 0){*/
+        if(send_res != 0){
 			do {
 				bzero(recv_buf, sizeof(recv_buf));
-				r = read(s, recv_buf, strlen(MESSAGE));
+				r = read(s, recv_buf, PACKET_SIZE);
 				printf("Received from server: ");
-				for(int i = 0; i < r; i++) {
+				/*for(int i = 0; i < r; i++) {
 					putchar(recv_buf[i]);
-				}
+				}*/
+				print_proberequest((struct buffer *)recv_buf);
 				printf("\n");
-			} while(r < strlen(MESSAGE));
+			} while(r < PACKET_SIZE);
 
 			ESP_LOGI(TAG, "Done reading from socket. Last read return=%d errno=%d\r", r, errno);
-        //}
+        }
 
         close(s);
         ESP_LOGI(TAG, "New request in 5 seconds");
-        for(int i = 0; i < count; i++)
-        	print_proberequest(&(buf[i]));
+        /*for(int i = 0; i < count; i++)
+        	print_proberequest(&(buf[i]));*/
         vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
     ESP_LOGI(TAG, "tcp_client task closed");
@@ -259,7 +274,7 @@ void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type) {
 
 	b->timestamp = ppkt->rx_ctrl.timestamp;
 	b->channel = ppkt->rx_ctrl.channel;
-	b->seq_ctl[0] = hdr->seq_ctl[0]; b->seq_ctl[1] = hdr->seq_ctl[1];
+	b->seq_ctl/*[0]*/ = hdr->seq_ctl/*[0]; b->seq_ctl[1] = hdr->seq_ctl[1]*/;
 	b->rssi = ppkt->rx_ctrl.rssi;
 	for (int j=0; j<6; j++)
 		b->addr[j] = hdr->addr2[j];
@@ -269,7 +284,7 @@ void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type) {
 	for (int i=0, j=packet_length-4; i<4; i++, j++)
 		b->crc[i] = ipkt->payload[j];
 
-	print_proberequest(buf);
+	print_proberequest(b);
 
 	buf[count] = *b;
 	count++;
@@ -280,15 +295,21 @@ ssize_t send_probe_buffer(int sock){
 	if (count == 0)
 		return 0;
 	else
-		return write(sock, buf, sizeof(struct buffer)*count);
+		return write(sock, (buf), sizeof(struct buffer)*count);
+}
+
+void clear_probe_buffer(){
+	/* set every bytes of the stored packets to 0 */
+	memset(buf, 0, sizeof(struct buffer)*count);
+	count = 0;
 }
 
 void print_proberequest(struct buffer* buf){
-	printf("%08d  PROBE  CHAN=%02d,  SEQ=%02x%02x,  RSSI=%02d, "
+	printf("%08d  PROBE  CHAN=%02d,  SEQ=%04x,  RSSI=%02d, "
 			" ADDR=%02x:%02x:%02x:%02x:%02x:%02x,  " ,
 			buf->timestamp,
 			buf->channel,
-			buf->seq_ctl[0], buf->seq_ctl[1],
+			buf->seq_ctl/*[0], buf->seq_ctl[1]*/,
 			buf->rssi,
 			buf->addr[0],buf->addr[1],buf->addr[2],
 			buf->addr[3],buf->addr[4],buf->addr[5]
