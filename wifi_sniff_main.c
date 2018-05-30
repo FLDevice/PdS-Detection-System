@@ -19,8 +19,8 @@
 #include "driver/gpio.h"
 
 // WiFi Connection
-#define SSID "DESKTOP-500ABNA 5541"
-#define PASSPHARSE "bollicina27"
+#define SSID "FL-Lap"
+#define PASSPHARSE "02M0157q"
 #define MESSAGE "HelloTCPServer"
 #define TCPServerIP "192.168.137.1"
 #define TCPServerPort 3010
@@ -45,7 +45,13 @@ struct buffer {
 	uint8_t crc[4];
 };
 
-struct buffer buf[100];
+struct buffer_list {
+	struct buffer data;
+	struct buffer_list *next;
+};
+
+struct buffer *buf;
+struct buffer_list *head, *curr;
 uint8_t count = 0;
 
 typedef struct {
@@ -83,7 +89,6 @@ const int CONNECTED_BIT = BIT0;
 static const char *TAG="tcp_client";
 
 /** Packet sniffing functions **/
-
 static esp_err_t event_handler(void *ctx, system_event_t *event);
 static void wifi_sniffer_set_channel(uint8_t channel);
 static void wifi_sniffer_packet_handler(void *buff, wifi_promiscuous_pkt_type_t type);
@@ -91,18 +96,15 @@ void wifi_sniffer_init(void);
 void print_proberequest(struct buffer* buf);
 ssize_t send_probe_buffer(int sock);
 void clear_probe_buffer(void);
+void check_list_size();
 
 void wifi_connect(){
     wifi_config_t cfg = {
         .sta = {
             .ssid = SSID,
             .password = PASSPHARSE,
-			.channel = 1,
+						.channel = 1,
         },
-		/*.ap = {
-			.ssid = "hotspotESP32",
-			.channel = 1,
-		},*/
     };
     ESP_ERROR_CHECK( esp_wifi_disconnect() );
     ESP_ERROR_CHECK( esp_wifi_set_config(ESP_IF_WIFI_STA, &cfg) );
@@ -140,70 +142,70 @@ void tcp_client(void *pvParam){
 
     while(1){
     	xEventGroupWaitBits(wifi_event_group,CONNECTED_BIT,false,true,portMAX_DELAY);
-		s = socket(AF_INET, SOCK_STREAM, 0);
-		if(s < 0) {
-			ESP_LOGE(TAG, "Failed to allocate socket");
-			vTaskDelay(1000 / portTICK_PERIOD_MS);
-			continue;
-		}
-		ESP_LOGI(TAG, "Socket allocated");
-		 if(connect(s, (struct sockaddr *)&tcpServerAddr, sizeof(tcpServerAddr)) != 0) {
-			ESP_LOGE(TAG, "Socket connect failed, errno=%d\n", errno);
-			close(s);
-			vTaskDelay(4000 / portTICK_PERIOD_MS);
-			continue;
-		}
-		ESP_LOGI(TAG, "Connected to the server");
-		/*
-        if( write(s , MESSAGE , strlen(MESSAGE)) < 0)
-        {
-            ESP_LOGE(TAG, "Send failed");
-            close(s);
-            vTaskDelay(4000 / portTICK_PERIOD_MS);
-            continue;
-        }*/
+			s = socket(AF_INET, SOCK_STREAM, 0);
+			if(s < 0) {
+				ESP_LOGE(TAG, "Failed to allocate socket");
+				vTaskDelay(1000 / portTICK_PERIOD_MS);
+				continue;
+			}
+			ESP_LOGI(TAG, "Socket allocated");
+			 if(connect(s, (struct sockaddr *)&tcpServerAddr, sizeof(tcpServerAddr)) != 0) {
+				ESP_LOGE(TAG, "Socket connect failed, errno=%d\n", errno);
+				close(s);
+				vTaskDelay(4000 / portTICK_PERIOD_MS);
+				continue;
+			}
+			ESP_LOGI(TAG, "Connected to the server");
+			/*
+	        if( write(s , MESSAGE , strlen(MESSAGE)) < 0)
+	        {
+	            ESP_LOGE(TAG, "Send failed");
+	            close(s);
+	            vTaskDelay(4000 / portTICK_PERIOD_MS);
+	            continue;
+	        }*/
 
-		char c = count + '0';
-		if(write(s, &c, 1) != 1){
-			ESP_LOGE(TAG, "Send of *count* failed");
-			close(s);
-			vTaskDelay(4000 / portTICK_PERIOD_MS);
-			continue;
-		}
+			char c = count + '0';
+			if(write(s, &c, 1) != 1){
+				ESP_LOGE(TAG, "Send of *count* failed");
+				close(s);
+				vTaskDelay(4000 / portTICK_PERIOD_MS);
+				continue;
+			}
 
-		ssize_t send_res;
-		if((send_res = send_probe_buffer(s)) < 0){
-			ESP_LOGE(TAG, "Send of buffer failed");
-			close(s);
-			vTaskDelay(4000 / portTICK_PERIOD_MS);
-			continue;
-		}
-		/* WARN!!! Does it require a lock? */
-		clear_probe_buffer();
-        ESP_LOGI(TAG, "Socket send success");
+			ssize_t send_res;
+			if((send_res = send_probe_buffer(s)) < 0){
+				ESP_LOGE(TAG, "Send of buffer failed");
+				close(s);
+				vTaskDelay(4000 / portTICK_PERIOD_MS);
+				continue;
+			}
+			/* WARN!!! Does it require a lock? */
+			clear_probe_buffer();
+	    ESP_LOGI(TAG, "Socket send success");
 
-        if(send_res != 0){
-			do {
-				bzero(recv_buf, sizeof(recv_buf));
-				r = read(s, recv_buf, PACKET_SIZE);
-				printf("Received from server: ");
-				/*for(int i = 0; i < r; i++) {
-					putchar(recv_buf[i]);
-				}*/
-				print_proberequest((struct buffer *)recv_buf);
-				printf("\n");
-			} while(r < PACKET_SIZE);
+	    if(send_res != 0){
+				do {
+					bzero(recv_buf, sizeof(recv_buf));
+					r = read(s, recv_buf, PACKET_SIZE);
+					printf("Received from server: ");
+					/*for(int i = 0; i < r; i++) {
+						putchar(recv_buf[i]);
+					}*/
+					print_proberequest((struct buffer *)recv_buf);
+					printf("\n");
+				} while(r < PACKET_SIZE);
 
-			ESP_LOGI(TAG, "Done reading from socket. Last read return=%d errno=%d\r", r, errno);
-        }
+				ESP_LOGI(TAG, "Done reading from socket. Last read return=%d errno=%d\r", r, errno);
+	    }
 
-        close(s);
-        ESP_LOGI(TAG, "New request in 5 seconds");
-        /*for(int i = 0; i < count; i++)
-        	print_proberequest(&(buf[i]));*/
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
-    }
-    ESP_LOGI(TAG, "tcp_client task closed");
+	    close(s);
+	    ESP_LOGI(TAG, "New request in 5 seconds");
+	    /*for(int i = 0; i < count; i++)
+	    	print_proberequest(&(buf[i]));*/
+	    vTaskDelay(5000 / portTICK_PERIOD_MS);
+  	}
+  	ESP_LOGI(TAG, "tcp_client task closed");
 }
 
 void app_main()
@@ -214,7 +216,7 @@ void app_main()
 
   /* WiFI SetUp and Initialization */
   wifi_sniffer_init();
-  wifi_sniffer_set_channel(channel);
+  wifi_sniffer_set_channel(1); //channel
 
   // See FreeRTOS API - Create a new task and add it to the list of tasks that are ready to run
   // Arguments:
@@ -231,10 +233,17 @@ wifi_sniffer_init(void)
 			ESP_ERROR_CHECK(nvs_flash_erase());
 			ret = nvs_flash_init();
 	}
+
+	/*** Init buffer list **/
+	head = malloc(sizeof(struct buffer_list));
+	head->next = NULL;
+	curr = head;
+	printf("\t%p\n", head);
+
 	/*** Init Wifi ***/
 	tcpip_adapter_init();	// Creates an LwIP core task and initialize LwIP-related work.
 	// Create the Wi-Fi driver task and initialize the Wi-Fi driver.
-	ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL)); // Create a system Event task and initialize an application event’s callback function.
+	ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL)); // Create a system Event task and initialize an application eventï¿½s callback function.
 	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
@@ -258,6 +267,11 @@ void wifi_sniffer_set_channel(uint8_t channel) {
 
 void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type) {
 
+	// If count == 20, stop sniffing
+	/*if(count==20) {
+		esp_wifi_set_promiscuous(false);
+		return;
+	}*/
 	if (type != WIFI_PKT_MGMT)
 		return;
 
@@ -270,23 +284,31 @@ void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type) {
 
 	int packet_length = ppkt->rx_ctrl.sig_len;
 
-	struct buffer* b = malloc(sizeof(struct buffer));
+	//struct buffer* b = malloc(sizeof(struct buffer));
+	struct buffer b;
 
-	b->timestamp = ppkt->rx_ctrl.timestamp;
-	b->channel = ppkt->rx_ctrl.channel;
-	b->seq_ctl/*[0]*/ = hdr->seq_ctl/*[0]; b->seq_ctl[1] = hdr->seq_ctl[1]*/;
-	b->rssi = ppkt->rx_ctrl.rssi;
+	b.timestamp = ppkt->rx_ctrl.timestamp;
+	b.channel = ppkt->rx_ctrl.channel;
+	b.seq_ctl/*[0]*/ = hdr->seq_ctl/*[0]; b->seq_ctl[1] = hdr->seq_ctl[1]*/;
+	b.rssi = ppkt->rx_ctrl.rssi;
 	for (int j=0; j<6; j++)
-		b->addr[j] = hdr->addr2[j];
-	b->ssid_length = ipkt->payload[1];
-	for (int i=0; i<b->ssid_length; i++)
-		b->ssid[i] = (char)ipkt->payload[i+2];
+		b.addr[j] = hdr->addr2[j];
+	b.ssid_length = ipkt->payload[1];
+	for (int i=0; i<b.ssid_length; i++)
+		b.ssid[i] = (char)ipkt->payload[i+2];
 	for (int i=0, j=packet_length-4; i<4; i++, j++)
-		b->crc[i] = ipkt->payload[j];
+		b.crc[i] = ipkt->payload[j];
 
-	print_proberequest(b);
+	// Add buffer to buffer_list
+	curr->data = b;
 
-	buf[count] = *b;
+	print_proberequest(&(curr->data));
+	struct buffer_list *temp = malloc(sizeof(struct buffer_list));
+	temp->next = NULL;
+	curr->next = temp;
+	curr = temp;
+
+	//buf[count] = *b;
 	count++;
 }
 
@@ -294,14 +316,40 @@ void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type) {
 ssize_t send_probe_buffer(int sock){
 	if (count == 0)
 		return 0;
-	else
-		return write(sock, (buf), sizeof(struct buffer)*count);
+
+	struct buffer_list *ptr;
+	for(ptr=head; ptr->next!=NULL; ptr = ptr->next) {
+		if( write(sock, &(ptr->data), sizeof(struct buffer)) < 0 )
+			return -1;
+	}
+
+	return 1;
 }
 
 void clear_probe_buffer(){
 	/* set every bytes of the stored packets to 0 */
-	memset(buf, 0, sizeof(struct buffer)*count);
-	count = 0;
+	struct buffer_list *ptr, *temp;
+
+	//check_list_size(); // DEBUGGING: Prints the current count variable and the list size
+
+	if( count==0 )
+		return;
+
+	/* If at least a packet was read, then empty the list*/
+	ptr = head->next;
+	memset( &(head->data), 0, sizeof(struct buffer));
+	head->next = NULL;
+
+	for(; ptr->next!=NULL;) {
+		 temp = ptr->next;
+		 free(ptr);
+		 ptr = temp;
+	}
+
+	curr = head;
+
+	count=0;
+	//esp_wifi_set_promiscuous(true);
 }
 
 void print_proberequest(struct buffer* buf){
@@ -321,4 +369,20 @@ void print_proberequest(struct buffer* buf){
 	for (int i=0; i<4; i++)
 		printf("%02x", buf->crc[i]);
 	printf("\n");
+}
+
+/*
+ * Debugging function used to test whether the length of the list is equal to
+ * the count variable
+ */
+void check_list_size(){
+	int list_size = 0;
+	struct buffer_list *ptr = head;
+
+	while(ptr->next != NULL) {
+		list_size++;
+		ptr = ptr->next;
+	}
+
+	printf("Count: %d\nList_size: %d\n", count, list_size);
 }
