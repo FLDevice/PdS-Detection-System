@@ -1,0 +1,9 @@
+Compilare ed eseguire il server da linea di comando usando
+Prompt dei comandi per gli sviluppatori per VS:
+
+Per compilare:
+> cd [directory dove è presente il file]
+> cl /EHsc tcp_server_all_in_one.cpp 
+
+Per eseguire:
+> tcp_server_all_in_one
