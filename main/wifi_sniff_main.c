@@ -46,7 +46,7 @@ void print_proberequest(struct buffer* buf);
 ssize_t send_probe_buffer(int sock);
 void clear_probe_buffer(void);
 void check_list_size();
-
+void tcp_client_timer_version();
 
 /******************************************
  *                 TIMER
@@ -80,7 +80,7 @@ void IRAM_ATTR timer_group0_isr(void *para)
     /* Retrieve the interrupt status and the counter value
        from the timer that reported the interrupt */
     uint32_t intr_status = TIMERG0.int_st_timers.val;
-    TIMERG0.hw_timer[timer_idx].update = 1;
+    TIMERG0.hw_timer[timer_idx].update = 1;     // For TIMERG0 info, go to https://github.com/espressif/esp-idf/blob/221eced06daff783afde6e378f6f84a82867f758/components/soc/esp32/include/soc/timer_group_struct.h
     uint64_t timer_counter_value =
         ((uint64_t) TIMERG0.hw_timer[timer_idx].cnt_high) << 32
         | TIMERG0.hw_timer[timer_idx].cnt_low;
@@ -157,6 +157,7 @@ static void timer_example_evt_task(void *arg)
     while (1) {
         timer_event_t evt;
         xQueueReceive(timer_queue, &evt, portMAX_DELAY);
+        flag_timer = 1;
 
         /* Print information that the timer reported an event */
         if (evt.type == TEST_WITHOUT_RELOAD) {
@@ -178,11 +179,9 @@ static void timer_example_evt_task(void *arg)
         timer_get_counter_value(evt.timer_group, evt.timer_idx, &task_counter_value);
         print_timer_counter(task_counter_value);
 
+        tcp_client_timer_version();
 
-
-
-        timer_pause(TIMER_GROUP_0, evt.timer_idx);
-        flag_timer = 1;
+        flag_timer = 0;
     }
 }
 
@@ -202,15 +201,15 @@ void app_main()
   esp_wifi_set_channel( CHANNEL_TO_SNIFF, WIFI_SECOND_CHAN_NONE);; //channel
 
   timer_queue = xQueueCreate(10, sizeof(timer_event_t));
-  example_tg0_timer_init(TIMER_0, TEST_WITHOUT_RELOAD, TIMER_INTERVAL0_SEC);
-  //example_tg0_timer_init(TIMER_1, TEST_WITH_RELOAD,    TIMER_INTERVAL1_SEC);
-  xTaskCreate(timer_example_evt_task, "timer_evt_task", 2048, NULL, 5, NULL);
-
+  //example_tg0_timer_init(TIMER_0, TEST_WITHOUT_RELOAD, TIMER_INTERVAL0_SEC);
+  example_tg0_timer_init(TIMER_1, TEST_WITH_RELOAD,    TIMER_INTERVAL1_SEC);
   // See FreeRTOS API - Create a new task and add it to the list of tasks that are ready to run
   // Arguments:
   // Pointer to function - Name of the task - Size of task stack - Parameters for the task
   // Priority of the task - Handle by which the created task can be referenced.
-  xTaskCreate(&tcp_client,"tcp_client",4048,NULL,5,NULL);
+  xTaskCreate(timer_example_evt_task, "timer_evt_task", 2048, NULL, 5, NULL);
+
+  //xTaskCreate(&tcp_client,"tcp_client",4048,NULL,5,NULL);
 }
 
 
@@ -377,6 +376,72 @@ void tcp_client(void *pvParam){
   	ESP_LOGI(TAG, "tcp_client task closed");
 }
 
+void tcp_client_timer_version(){
+    ESP_LOGI(TAG,"tcp_client task started \n");
+    struct sockaddr_in tcpServerAddr;
+    tcpServerAddr.sin_addr.s_addr = inet_addr(TCPServerIP);
+    tcpServerAddr.sin_family = AF_INET;
+    tcpServerAddr.sin_port = htons(TCPServerPort);
+    int s, r;
+    char recv_buf[64];
+
+    for(int i = 0; i < 3; i++) {
+			s = socket(AF_INET, SOCK_STREAM, 0);
+			if(s < 0) {
+				ESP_LOGE(TAG, "Failed to allocate socket");
+				vTaskDelay(1000 / portTICK_PERIOD_MS);
+				continue;
+			}
+			ESP_LOGI(TAG, "Socket allocated");
+			 if(connect(s, (struct sockaddr *)&tcpServerAddr, sizeof(tcpServerAddr)) != 0) {
+				ESP_LOGE(TAG, "Socket connect failed, errno=%d\n", errno);
+				close(s);
+				vTaskDelay(1000 / portTICK_PERIOD_MS);
+				continue;
+			}
+			ESP_LOGI(TAG, "Connected to the server");
+
+			char c = count + '0';
+			if(write(s, &c, 1) != 1){
+				ESP_LOGE(TAG, "Send of *count* failed");
+				close(s);
+				vTaskDelay(1000 / portTICK_PERIOD_MS);
+				continue;
+			}
+
+			ssize_t send_res;
+			if((send_res = send_probe_buffer(s)) < 0){
+				ESP_LOGE(TAG, "Send of buffer failed");
+				close(s);
+				vTaskDelay(1000 / portTICK_PERIOD_MS);
+				continue;
+			}
+			/* WARN!!! Does it require a lock? */
+			clear_probe_buffer();
+	    ESP_LOGI(TAG, "Socket send success");
+
+	    if(send_res != 0){
+				do {
+					bzero(recv_buf, sizeof(recv_buf));
+					r = read(s, recv_buf, PACKET_SIZE);
+					printf("Received from server: ");
+					/*for(int i = 0; i < r; i++) {
+						putchar(recv_buf[i]);
+					}*/
+					print_proberequest((struct buffer *)recv_buf);
+					printf("\n");
+				} while(r < PACKET_SIZE);
+
+				ESP_LOGI(TAG, "Done reading from socket. Last read return=%d errno=%d\r", r, errno);
+	    }
+
+	    close(s);
+	    ESP_LOGI(TAG, "New request in 5 seconds");
+      break;
+    }
+
+    ESP_LOGI(TAG, "tcp_client task closed");
+}
 
 /******************************************
 			SNIFFING
