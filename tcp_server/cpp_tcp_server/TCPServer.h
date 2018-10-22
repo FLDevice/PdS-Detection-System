@@ -15,6 +15,7 @@
 #pragma comment (lib, "Ws2_32.lib")
 
 #define PACKET_SIZE 52
+#define MAX_RETRY_TIMES 3
 #define DEFAULT_PORT "3010"
 
 class TCPServer_exception : public virtual std::runtime_error {
@@ -47,6 +48,11 @@ protected:
 	int result;
 	// send result
 	int send_result;
+	
+	/** how many times after a socket error the connection is retried
+	 before launching an exception */
+	uint8_t retry;
+
 	
 public:
 

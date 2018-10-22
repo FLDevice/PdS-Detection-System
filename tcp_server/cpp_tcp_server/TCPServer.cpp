@@ -5,7 +5,7 @@ int main(){
 		TCPServer tcp_server;
 	}
 	catch(std::exception& e){
-		std::cout << "AN EXEPTION OCCURRED, TERMINATE APPLICATION" << std::endl;
+		std::cout << "AN EXCEPTION OCCURRED, TERMINATE APPLICATION" << std::endl;
 		exit(-1);
 	}
 }
@@ -14,36 +14,42 @@ int main(){
 
 TCPServer::TCPServer(){
 	
-	try{
-		TCPS_initialize();
-		std::cout << "TCP Server is correctly initialized" << std::endl;
-		
-		TCPS_socket();
-		TCPS_bind();
-		TCPS_listen();
-		std::cout << "TCP Server is running" << std::endl;
-		
-		TCPS_requests_loop();
-		
-		
-	}
-	catch(TCPServer_exception& e){
-		std::cout << e.what() << WSAGetLastError() << std::endl;
-		freeaddrinfo(aresult);
-		closesocket(listen_socket);
-		WSACleanup();
-		throw;
-	}
-	catch(std::runtime_error& e){
-		std::cout << e.what() << result << std::endl;
-		WSACleanup();
-		throw;
-	}
-	catch(std::exception& e){
-		std::cout << e.what() << std::endl;
-		throw;
-	}
+	retry = MAX_RETRY_TIMES;
 	
+	while(retry > 0){
+		try{
+			//---------------//---------------//---------------
+			TCPS_initialize();
+			std::cout << "TCP Server is correctly initialized" << std::endl;
+			
+			TCPS_socket();
+			TCPS_bind();
+			TCPS_listen();
+			std::cout << "TCP Server is running" << std::endl;
+			
+			TCPS_requests_loop();
+			//---------------//---------------//---------------
+		}
+		catch(TCPServer_exception& e){
+			std::cout << e.what() << WSAGetLastError() << std::endl;
+			freeaddrinfo(aresult);
+			closesocket(listen_socket);
+			WSACleanup();
+			retry--;
+			if(!retry) throw;
+		}
+		catch(std::runtime_error& e){
+			std::cout << e.what() << result << std::endl;
+			WSACleanup();
+			retry--;
+			if(!retry) throw;
+		}
+		catch(std::exception& e){
+			std::cout << e.what() << std::endl;
+			retry--;
+			if(!retry) throw;
+		}
+	}
 }
 
 void TCPServer::TCPS_initialize(){
@@ -141,7 +147,10 @@ void TCPServer::TCPS_requests_loop(){
 				if(WSAGetLastError() == 10054){
 					continue;
 				}
-				else throw TCPServer_exception("send() failed with error ");
+				else{ 
+					free(recvbuf);
+					throw TCPServer_exception("send() failed with error ");
+				}
 			}
 			std::cout << "Bytes sent back: " << send_result << std::endl;
 
@@ -154,7 +163,10 @@ void TCPServer::TCPS_requests_loop(){
 			if(WSAGetLastError() == 10054){
 				continue;
 			}
-			else throw TCPServer_exception("recv() failed with error ");
+			else{ 
+				free(recvbuf);
+				throw TCPServer_exception("send() failed with error ");
+			}
 		}
 		
 		free(recvbuf);
