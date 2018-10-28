@@ -17,6 +17,7 @@
 #include "nvs_flash.h"
 #include "nvs.h"
 #include "driver/gpio.h"
+#include "esp_timer.h"
 
 #include "includes/sniffing.h"
 #include "includes/wifi_settings.h"
@@ -473,7 +474,11 @@ void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type)
 	//struct buffer* b = malloc(sizeof(struct buffer));
 	struct buffer b;
 
-	b.timestamp = ppkt->rx_ctrl.timestamp;
+  // Instead of using the time since boot, i register the time since the last connection with the server
+  uint64_t timer_val;
+  timer_get_counter_value(0, TIMER_1, &timer_val);
+	b.timestamp = ((double) timer_val / TIMER_SCALE)*1000000;//ppkt->rx_ctrl.timestamp;
+
 	b.channel = ppkt->rx_ctrl.channel;
 	b.seq_ctl/*[0]*/ = hdr->seq_ctl/*[0]; b->seq_ctl[1] = hdr->seq_ctl[1]*/;
 	b.rssi = ppkt->rx_ctrl.rssi;

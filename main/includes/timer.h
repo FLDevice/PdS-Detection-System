@@ -21,7 +21,7 @@
 #define TIMER_DIVIDER         16  //  Hardware timer clock divider
 #define TIMER_SCALE           (TIMER_BASE_CLK / TIMER_DIVIDER)  // convert counter value to seconds
 #define TIMER_INTERVAL0_SEC   (60.00) // sample test interval for the first timer
-#define TIMER_INTERVAL1_SEC   (60.00)   // sample test interval for the second timer
+#define TIMER_INTERVAL1_SEC   (15.00)   // sample test interval for the second timer
 #define TEST_WITHOUT_RELOAD   0        // testing will be done without auto reload
 #define TEST_WITH_RELOAD      1        // testing will be done with auto reload
 

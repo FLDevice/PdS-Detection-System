@@ -10,6 +10,7 @@
 #include <vector>
 #include <exception>
 #include <thread>
+	#include <ctime> // ADDED
 #include "probepacket.h"
 #include "probepacket.cpp"
 #include "BlockingQueue.h"
@@ -29,58 +30,60 @@ public:
 
 /** To use, just create a TCPServer object. */
 class TCPServer{
-	
+
 protected:
-	
+
 	// dynarray to store esp32 sniffed packets
 	//std::vector<ProbePacket> pp_vector;
 	BlockingQueue<ProbePacket> pp_vector;
-	
+
 	WSADATA wsadata;
-	
+
 	// sockets
 	SOCKET listen_socket;
 	SOCKET client_socket;
-	
+
 	addrinfo *aresult = NULL;
 	addrinfo hints;
-	
+
 	// buffer for received packets
 	char* recvbuf;
-	
+
 	// current operation's result
 	int result;
 	// send result
 	int send_result;
-	
+
 	/** how many times after a socket error the connection is retried
 	 before launching an exception */
 	uint8_t retry;
 
-	
+	long int time_since_last_update;
+
+
 public:
 
 	TCPServer();
-	
+
 private:
 	/** initialize winsock, may throw exception */
 	void TCPS_initialize();
-	
+
 	/** calls socket(), may throw exception */
 	void TCPS_socket();
-	
+
 	/** calls bind(), may throw exception */
 	void TCPS_bind();
-	
+
 	/** calls listen(), may throw exception */
 	void TCPS_listen();
-	
+
 	/** loops to client's connection requests, may throw exception */
 	void TCPS_requests_loop();
 
 	/** calls shutdown(), may throw exception */
 	void TCPS_shutdown();
-	
+
 	/** stores in the blocking queue client's sniffed packets,
 		may throw exceptions */
 	void TCPS_service();
