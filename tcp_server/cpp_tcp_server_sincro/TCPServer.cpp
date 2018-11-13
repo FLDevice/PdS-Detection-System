@@ -155,9 +155,13 @@ void TCPServer::TCPS_ask_participation(){
 					throw TCPServer_exception("accept() failed with error ");
 				}
 				
+				std::cout << "Connected to the client" << std::endl;
+				
 				recvbuf = (char*)malloc(10);
 				for (int i = 0; i < 10 ; i = i + result)
 					result = recv(client_socket, recvbuf+i, 10-i, 0);
+				
+				printf("--- recvbuf: %s\n", recvbuf);
 				
 				if(result > 0){
 					// The ESP32 sent an init message:
@@ -188,11 +192,15 @@ void TCPServer::TCPS_ask_participation(){
 					}
 					// The ESP32 is asking if the server is ready:
 					else if(memcmp(recvbuf, READY_MSG_H, 5) == 0){
+						std::cout << "Ready request arrived." << std::endl;	
+
 						// Reply 'NO' to the ESP32
 						free(recvbuf);
-						char sendbuf[6], *no = 0x0;
+						char sendbuf[6], no = 0;
 						strncpy(sendbuf, READY_MSG_H, 5);
-						strcat(sendbuf, no);
+						sendbuf[5] = no;
+						
+						printf("--- sending %s\n", sendbuf);
 						send_result = send(client_socket, sendbuf, 6, 0);
 						if(send_result == SOCKET_ERROR){
 							// connection reset by peer
@@ -213,6 +221,8 @@ void TCPServer::TCPS_ask_participation(){
 						continue;
 					}
 				}
+				else if (result == 0)
+					std::cout << "AAAAAAAAA";
 				else if (result < 0){
 					free(recvbuf);
 					throw TCPServer_exception("recv() failed with error ");
