@@ -27,6 +27,12 @@
  CONSTANTS, GLOBAL VARIABLES AND FUNCTIONS
 *******************************************/
 
+//                                                                ADDED BY ROBY
+const char INIT_MSG_H[5]= "INIT";
+const char READY_MSG_H[6] = "READY";
+uint8_t mac_address[6];
+int ready = 0;
+
 const int CONNECTED_BIT = BIT0;
 const uint8_t CHANNEL_TO_SNIFF = 1;
 static const char *TAG="tcp_client";
@@ -37,6 +43,10 @@ struct buffer_list *head, *curr;
 uint8_t count = 0;
 static wifi_country_t wifi_country = {.cc="CN", .schan=1, .nchan=13, .policy=WIFI_COUNTRY_POLICY_AUTO};
 static EventGroupHandle_t wifi_event_group;
+
+//                                                                ADDED BY ROBY
+void esp_initialization();
+void esp_is_ready();
 
 void wifi_sniffer_init(void);
 static esp_err_t event_handler(void *ctx, system_event_t *event);
@@ -214,12 +224,16 @@ void app_main()
 }
 
 
+
 /******************************************
 			INITIALIZATION
 *******************************************/
 
 void wifi_sniffer_init(void)
 {
+	
+	printf("wifi_sniffer_init\n");
+	
 	esp_err_t ret = nvs_flash_init();
 	if (ret == ESP_ERR_NVS_NO_FREE_PAGES) {
 			ESP_ERROR_CHECK(nvs_flash_erase());
@@ -236,22 +250,35 @@ void wifi_sniffer_init(void)
 	}
 	head->next = NULL;
 	curr = head;
-
+	
 	/*** Init Wifi ***/
 	tcpip_adapter_init();	// Creates an LwIP core task and initialize LwIP-related work.
 	// Create the Wi-Fi driver task and initialize the Wi-Fi driver.
 	ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL)); // Create a system Event task and initialize an application event�s callback function.
 	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-
+	
 	/*** Configure WiFi ***/
 	ESP_ERROR_CHECK(esp_wifi_set_country(&wifi_country)); // Set country for channel range [1, 13]
 	ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
 	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-
+	
 	/*** Start WiFi ***/
 	ESP_LOGI(TAG,"Starting wifi\n");
 	ESP_ERROR_CHECK(esp_wifi_start());
+	
+	//                                                                ADDED BY ROBY
+	
+	//Initialization of the ESP --> connection with the server
+	esp_initialization();
+	
+	//Check if the server is ready every 5 seconds
+	while (!ready) {
+		esp_is_ready();
+		sleep(5000);
+	}
+	
+	
 	// Set promiscuous mode and register the RX callback function.
 	// Each time a packet is received, the registered callback function will be called.
 	esp_wifi_set_promiscuous(true);
@@ -293,6 +320,136 @@ void wifi_connect(){
     ESP_ERROR_CHECK( esp_wifi_set_config(ESP_IF_WIFI_STA, &cfg) );
     //ESP_ERROR_CHECK( esp_wifi_set_config(ESP_IF_WIFI_AP, &cfg) );
     ESP_ERROR_CHECK( esp_wifi_connect() );
+}
+
+//                                                                ADDED BY ROBY
+void esp_initialization() {
+	printf("Waiting for initialization...\n");
+	ESP_ERROR_CHECK(esp_efuse_mac_get_default(mac_address)); //getting MAC address and saving it in mac_address array
+	printf("MAC ADDRESS:   ");
+	for (int i = 0; i < 6; i++) {
+		printf("%02x", mac_address[i]);
+		if (i < 5)
+			printf(":");
+	}
+	printf("\n");
+	
+	//GETTING INITIALIZATION CONFIRM BY SERVER
+    struct sockaddr_in tcpServerAddr;
+    tcpServerAddr.sin_addr.s_addr = inet_addr(TCPServerIP);
+    tcpServerAddr.sin_family = AF_INET;
+    tcpServerAddr.sin_port = htons(TCPServerPort);
+    int s;
+
+    for(int i = 0; i < 3; i++) {
+		s = socket(AF_INET, SOCK_STREAM, 0);
+		if(s < 0) {
+			ESP_LOGE(TAG, "Failed to allocate socket");
+			vTaskDelay(1000 / portTICK_PERIOD_MS);
+			continue;
+		}
+		ESP_LOGI(TAG, "Socket allocated");
+		 if (connect(s, (struct sockaddr *)&tcpServerAddr, sizeof(tcpServerAddr)) != 0) {
+			ESP_LOGE(TAG, "Socket connect failed, errno=%d\n", errno);
+			close(s);
+			vTaskDelay(1000 / portTICK_PERIOD_MS);
+			continue;
+		}
+		ESP_LOGI(TAG, "Connected to the server\n");
+		
+		//SENDING INIT MESSAGE TO THE SERVER
+		if (write(s, INIT_MSG_H, 4) < 0){
+			ESP_LOGE(TAG, "Sending of INIT failed\n");
+			close(s);
+			vTaskDelay(1000 / portTICK_PERIOD_MS);
+			continue;
+		}
+		else
+			ESP_LOGI(TAG, "INIT sent\n");
+		
+		//SENDING MAD ADDRESS TO THE SERVER
+		if (write(s, mac_address, 6) < 0){
+			ESP_LOGE(TAG, "Sending of MAC address failed\n");
+			close(s);
+			vTaskDelay(1000 / portTICK_PERIOD_MS);
+			continue;
+		}
+		else
+			ESP_LOGI(TAG, "MAC address sent\n");
+		
+		//READING THE INIT CONFIRM FROM THE SERVER
+		char recv[4];
+		if (read(s, recv, 4) < 0) {
+			ESP_LOGE(TAG, "read failed\n");
+			printf("recv: %s\n", recv);
+			close(s);
+			vTaskDelay(1000 / portTICK_PERIOD_MS);
+			continue;
+		}
+		else if (strncmp(recv, "INIT", 4) ==  0) {
+			ESP_LOGI(TAG, "INIT confirm received from server\n");
+			printf("recv: %s\n", recv);
+			close(s); //close
+			
+		}
+		else
+			ESP_LOGI(TAG, "received something else\n");
+		close(s);
+		break;
+    }	
+}
+
+//                                                                ADDED BY ROBY
+void esp_is_ready() {
+	struct sockaddr_in tcpServerAddr;
+    tcpServerAddr.sin_addr.s_addr = inet_addr(TCPServerIP);
+    tcpServerAddr.sin_family = AF_INET;
+    tcpServerAddr.sin_port = htons(TCPServerPort);
+    int s;
+	
+	s = socket(AF_INET, SOCK_STREAM, 0);
+	if(s < 0) {
+		ESP_LOGE(TAG, "Failed to allocate socket");
+		vTaskDelay(1000 / portTICK_PERIOD_MS);
+		return;
+	}
+	ESP_LOGI(TAG, "Socket allocated");
+	if (connect(s, (struct sockaddr *)&tcpServerAddr, sizeof(tcpServerAddr)) != 0) {
+		ESP_LOGE(TAG, "Socket connect failed, errno=%d\n", errno);
+		close(s);
+		vTaskDelay(1000 / portTICK_PERIOD_MS);
+		return;
+	}
+	ESP_LOGI(TAG, "Connected to the server\n");
+		
+	//SENDING READY REQUEST MESSAGE TO THE SERVER
+	if (write(s, INIT_MSG_H, 5) == -1){
+		ESP_LOGE(TAG, "Sending of READY failed\n");
+		close(s);
+		vTaskDelay(1000 / portTICK_PERIOD_MS);
+		return;
+	}
+	else
+		ESP_LOGI(TAG, "READY sent\n");
+	
+	//READING THE READY STATE FROM THE SERVER
+	char recv[6];
+	if (read(s, recv, 6) == -1) {
+		ESP_LOGE(TAG, "read failed\n");
+		close(s);
+		vTaskDelay(1000 / portTICK_PERIOD_MS);
+		return;
+	}
+	else if (strncmp(recv, "READY", 5) == 0) {
+		ESP_LOGI(TAG, "READY state received from server\n");
+		if (recv[5] == 0x0)
+			return;
+		else if (recv[5] == 0x1) {
+			ready = 1;
+			return;
+		}
+	}
+	
 }
 
 
@@ -401,6 +558,19 @@ void tcp_client_timer_version(){
 				continue;
 			}
 			ESP_LOGI(TAG, "Connected to the server");
+			
+			
+			
+			if(write(s, &INIT_MSG_H, 4) != 1){
+				ESP_LOGE(TAG, "Send of INIT failed");
+				close(s);
+				vTaskDelay(1000 / portTICK_PERIOD_MS);
+				continue;
+			}
+			else
+				ESP_LOGE(TAG, "INIT sent");
+			
+			/*
 
 			char c = count + '0';
 			if(write(s, &c, 1) != 1){
@@ -416,25 +586,25 @@ void tcp_client_timer_version(){
 				close(s);
 				vTaskDelay(1000 / portTICK_PERIOD_MS);
 				continue;
-			}
+			}*/
 			/* WARN!!! Does it require a lock? */
 			clear_probe_buffer();
 	    ESP_LOGI(TAG, "Socket send success");
 
-	    if(send_res != 0){
+	    /*if(send_res != 0){
 				do {
 					bzero(recv_buf, sizeof(recv_buf));
 					r = read(s, recv_buf, PACKET_SIZE);
-					printf("Received from server: ");
+					printf("Received from server: ");  */
 					/*for(int i = 0; i < r; i++) {
 						putchar(recv_buf[i]);
 					}*/
-					print_proberequest((struct buffer *)recv_buf);
+					/*print_proberequest((struct buffer *)recv_buf);
 					printf("\n");
 				} while(r < PACKET_SIZE);
 
 				ESP_LOGI(TAG, "Done reading from socket. Last read return=%d errno=%d\r", r, errno);
-	    }
+	    }*/
 
 	    close(s);
 	    ESP_LOGI(TAG, "New request in 5 seconds");
@@ -450,6 +620,9 @@ void tcp_client_timer_version(){
 
 void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type)
 {
+	if (ready == 0) {
+		return;
+	}
 	// If count == 20, stop sniffing
 	/*if (count >= 10) {
 		//esp_wifi_set_promiscuous(false);
