@@ -130,6 +130,7 @@ void TCPServer::TCPS_ask_participation(){
 		// for each ESP32 ask for its position in the space and its INIT packet
 		for(int i = 0; i < esp_number; i++){
 			int posx, posy;
+			uint8_t mac[6];
 			
 			try{
 				std::cout << "ESP32 number " << i << ": insert its spacial position." << std::endl;
@@ -167,14 +168,19 @@ void TCPServer::TCPS_ask_participation(){
 					// The ESP32 sent an init message:
 					if(memcmp(recvbuf, INIT_MSG_H, 4) == 0){
 						std::cout << "A new ESP32 has been detected. Sending confirm for its joining to the system." << std::endl;
+						std::cout << "Its MAC address: ";
 						
-						/*
-						MISSING PART: Test to the following 6 bytes of recvbuf and if success save
-						this ESP32 MAC address
-						*/
+						memcpy(mac, recvbuf+4, 6);
+						printf("%02x:%02x:%02x:%02x:%02x:%02x\n", mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
+						
+						char s[8];
+						memcpy(s, INIT_MSG_H, 4);
+						int port = FIRST_READY_PORT + i;
+						std::string str = std::to_string(port);
+						memcpy(s+4, str.c_str(), 4);
 						
 						// sending joining confirm
-						send_result = send(client_socket, INIT_MSG_H, 4, 0);
+						send_result = send(client_socket, s, 8, 0);
 						if(send_result == SOCKET_ERROR){
 							// connection reset by peer
 							if(WSAGetLastError() == 10054){
@@ -227,8 +233,21 @@ void TCPServer::TCPS_ask_participation(){
 					free(recvbuf);
 					throw TCPServer_exception("recv() failed with error ");
 				}
+			} // end while loop for INIT pckt
+			
+			// Open a new socket in a new thread to handle READY pckts with this ESP32
+			try{
+				std::thread(&TCPServer::TCPS_ready_channel, this).detach();
+			}catch(std::exception& e){
+				throw;
 			}
-		}
+			
+		} // end loop for every esp32
+	
+}
+
+void TCPServer::TCPS_ready_channel(){
+	
 	
 }
 
