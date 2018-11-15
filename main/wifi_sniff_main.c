@@ -32,6 +32,7 @@ const char INIT_MSG_H[5]= "INIT";
 const char READY_MSG_H[6] = "READY";
 uint8_t mac_address[6];
 int ready = 0;
+int READY_PORT = 0;
 
 const int CONNECTED_BIT = BIT0;
 const uint8_t CHANNEL_TO_SNIFF = 1;
@@ -378,22 +379,24 @@ void esp_initialization() {
 			ESP_LOGI(TAG, "MAC address sent\n");
 		
 		//READING THE INIT CONFIRM FROM THE SERVER
-		char recv[4];
-		if (read(s, recv, 4) < 0) {
+		char recv[8];
+		if ((read(s, recv, 8)) < 0) {
 			ESP_LOGE(TAG, "read failed\n");
 			printf("recv: %s\n", recv);
 			close(s);
 			vTaskDelay(1000 / portTICK_PERIOD_MS);
 			continue;
 		}
-		else if (strncmp(recv, "INIT", 4) ==  0) {
+		else if (strncmp(recv, "INIT", 4) == 0) {
 			ESP_LOGI(TAG, "INIT confirm received from server\n");
-			printf("recv: %s\n", recv);
+			READY_PORT = (recv[4]-'0')*1000 + (recv[5]-'0')*100 + (recv[6]-'0')*10 + recv[7]-'0';
+			printf("Ready port: %i \n", READY_PORT);
 			close(s); //close
-			
 		}
-		else
+		else{
 			ESP_LOGI(TAG, "received something else\n");
+			printf("recv: %s\n", recv);
+		}
 		close(s);
 		break;
     }	
