@@ -54,15 +54,15 @@ TCPServer::TCPServer(){
 			TCPS_initialize(aresult);
 			std::cout << "TCP Server is correctly initialized with " << esp_number << " ESP32." << std::endl;
 
-			TCPS_socket(aresult);
-			TCPS_bind(aresult);
+			TCPS_socket();
+			TCPS_bind();
 			TCPS_listen();
 			TCPS_ask_participation();
 			TCPS_close_listen_socket();
 			
-			TCPS_initialize(aresult1);
-			TCPS_socket(aresult1);
-			TCPS_bind(aresult1);
+			TCPS_initialize();
+			TCPS_socket();
+			TCPS_bind();
 			TCPS_listen();
 	
 			std::cout << "TCP Server is running" << std::endl;
@@ -91,7 +91,7 @@ TCPServer::TCPServer(){
 	}
 }
 
-void TCPServer::TCPS_initialize(addrinfo* a){
+void TCPServer::TCPS_initialize(){
 
 	if(aresult) freeaddrinfo(aresult);
 	ZeroMemory(&hints, sizeof(hints));
@@ -106,7 +106,7 @@ void TCPServer::TCPS_initialize(addrinfo* a){
 	}
 }
 
-void TCPServer::TCPS_socket(addrinfo* a){
+void TCPServer::TCPS_socket(){
 	listen_socket = socket(aresult->ai_family, aresult->ai_socktype, aresult->ai_protocol);
 	if (listen_socket == INVALID_SOCKET){
 		freeaddrinfo(aresult);
@@ -114,7 +114,7 @@ void TCPServer::TCPS_socket(addrinfo* a){
 	}
 }
 
-void TCPServer::TCPS_bind(addrinfo* a){
+void TCPServer::TCPS_bind(){
 	result = bind(listen_socket, aresult->ai_addr, (int)aresult->ai_addrlen);
 	if (result == SOCKET_ERROR){
 		throw TCPServer_exception("bind() failed");

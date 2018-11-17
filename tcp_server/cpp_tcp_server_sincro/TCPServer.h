@@ -83,7 +83,6 @@ protected:
 	BlockingQueue<SOCKET> ready_sockets;
 
 	addrinfo *aresult = NULL;
-	addrinfo *aresult1 = NULL;
 	addrinfo hints;
 
 	// buffer for received packets
@@ -107,13 +106,13 @@ public:
 
 private:
 	/** initialize winsock, may throw exception */
-	void TCPS_initialize(addrinfo* a);
+	void TCPS_initialize();
 
 	/** calls socket(), may throw exception */
-	void TCPS_socket(addrinfo* a);
+	void TCPS_socket();
 
 	/** calls bind(), may throw exception */
-	void TCPS_bind(addrinfo* a);
+	void TCPS_bind();
 
 	/** calls listen(), may throw exception */
 	void TCPS_listen();
