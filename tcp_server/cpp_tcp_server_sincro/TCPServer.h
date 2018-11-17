@@ -12,6 +12,8 @@
 #include <vector>
 #include <exception>
 #include <thread>
+#include <mutex>
+#include <condition_variable>
 	#include <ctime> // ADDED
 #include "utilities.cpp"
 #include "probepacket.h"
@@ -66,6 +68,10 @@ protected:
 	int esp_number;
 	std::vector<ESP32> esp_list;
 	
+	int threads_to_wait_for;
+	std::mutex mtx;
+	std::condition_variable cvar;
+	
 	// thread-safe queue to store esp32 sniffed packets
 	BlockingQueue<ProbePacket> pp_vector;
 
@@ -77,6 +83,7 @@ protected:
 	BlockingQueue<SOCKET> ready_sockets;
 
 	addrinfo *aresult = NULL;
+	addrinfo *aresult1 = NULL;
 	addrinfo hints;
 
 	// buffer for received packets
@@ -100,13 +107,13 @@ public:
 
 private:
 	/** initialize winsock, may throw exception */
-	void TCPS_initialize();
+	void TCPS_initialize(addrinfo* a);
 
 	/** calls socket(), may throw exception */
-	void TCPS_socket();
+	void TCPS_socket(addrinfo* a);
 
 	/** calls bind(), may throw exception */
-	void TCPS_bind();
+	void TCPS_bind(addrinfo* a);
 
 	/** calls listen(), may throw exception */
 	void TCPS_listen();
@@ -115,13 +122,16 @@ private:
 	void TCPS_ask_participation();
 	
 	/** create a connection with the ESP32 to notify when the server is ready */
-	void TCPS_ready_channel();
+	void TCPS_ready_channel(int esp_id);
 
 	/** loops to client's connection requests, may throw exception */
 	void TCPS_requests_loop();
 
 	/** calls shutdown(), may throw exception */
 	void TCPS_shutdown();
+	
+	/** calls closesocket() on the listen socket, may throw exception */
+	void TCPS_close_listen_socket();
 
 	/** stores in the blocking queue client's sniffed packets,
 		may throw exceptions */

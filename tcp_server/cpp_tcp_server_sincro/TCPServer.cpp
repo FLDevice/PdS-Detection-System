@@ -42,21 +42,30 @@ TCPServer::TCPServer(){
 
 	time_since_last_update = 0; // ADDED
 	retry = MAX_RETRY_TIMES;
+	threads_to_wait_for = esp_number;
 
 	// Initializing Server Functionality	
 	while(retry > 0){
 		try{
+			
+			if(WSAStartup(MAKEWORD(2, 2), &wsadata) != 0) throw std::runtime_error("WSAStartup() failed with error ");
+			
 			//---------------//---------------//---------------
-			TCPS_initialize();
+			TCPS_initialize(aresult);
 			std::cout << "TCP Server is correctly initialized with " << esp_number << " ESP32." << std::endl;
 
-			TCPS_socket();
-			TCPS_bind();
+			TCPS_socket(aresult);
+			TCPS_bind(aresult);
 			TCPS_listen();
 			TCPS_ask_participation();
+			TCPS_close_listen_socket();
 			
+			TCPS_initialize(aresult1);
+			TCPS_socket(aresult1);
+			TCPS_bind(aresult1);
+			TCPS_listen();
+	
 			std::cout << "TCP Server is running" << std::endl;
-
 			TCPS_requests_loop();
 			//---------------//---------------//---------------
 		}
@@ -82,13 +91,9 @@ TCPServer::TCPServer(){
 	}
 }
 
-void TCPServer::TCPS_initialize(){
+void TCPServer::TCPS_initialize(addrinfo* a){
 
-	result = WSAStartup(MAKEWORD(2, 2), &wsadata);
-	if(result != 0){
-		throw std::runtime_error("WSAStartup() failed with error ");
-	}
-
+	if(aresult) freeaddrinfo(aresult);
 	ZeroMemory(&hints, sizeof(hints));
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
@@ -101,7 +106,7 @@ void TCPServer::TCPS_initialize(){
 	}
 }
 
-void TCPServer::TCPS_socket(){
+void TCPServer::TCPS_socket(addrinfo* a){
 	listen_socket = socket(aresult->ai_family, aresult->ai_socktype, aresult->ai_protocol);
 	if (listen_socket == INVALID_SOCKET){
 		freeaddrinfo(aresult);
@@ -109,7 +114,7 @@ void TCPServer::TCPS_socket(){
 	}
 }
 
-void TCPServer::TCPS_bind(){
+void TCPServer::TCPS_bind(addrinfo* a){
 	result = bind(listen_socket, aresult->ai_addr, (int)aresult->ai_addrlen);
 	if (result == SOCKET_ERROR){
 		throw TCPServer_exception("bind() failed");
@@ -126,6 +131,9 @@ void TCPServer::TCPS_listen(){
 void TCPServer::TCPS_ask_participation(){
 	
 		std::cout << "Please unplug all the ESP32 from the energy source. You will plug them one at a time as requested." << std::endl << std::endl;
+		
+		/* create threads with no execution flow */
+		std::thread threads[MAX_ESP32_NUM];
 		
 		// for each ESP32 ask for its position in the space and its INIT packet
 		for(int i = 0; i < esp_number; i++){
@@ -161,9 +169,7 @@ void TCPServer::TCPS_ask_participation(){
 				recvbuf = (char*)malloc(10);
 				for (int i = 0; i < 10 ; i = i + result)
 					result = recv(client_socket, recvbuf+i, 10-i, 0);
-				
-				printf("--- recvbuf: %s\n", recvbuf);
-				
+								
 				if(result > 0){
 					// The ESP32 sent an init message:
 					if(memcmp(recvbuf, INIT_MSG_H, 4) == 0){
@@ -193,6 +199,11 @@ void TCPServer::TCPS_ask_participation(){
 						}
 						std::cout << "Confirmation sent." << std::endl;	
 						free(recvbuf);
+						
+						// arguments: id, mac address, x pos, y pos, ready port for socket creation
+						ESP32 espdata(i, mac, posx, posy, port);
+						esp_list.push_back(espdata);
+						
 						// return to the outer for loop
 						break;
 					}
@@ -234,21 +245,122 @@ void TCPServer::TCPS_ask_participation(){
 					throw TCPServer_exception("recv() failed with error ");
 				}
 			} // end while loop for INIT pckt
-			
-			// Open a new socket in a new thread to handle READY pckts with this ESP32
+						
+			std::cout << "Starting child thread for ready channel." << std::endl;
+
+			// Assign to a thread the job to handle a new socket for ready packets.
 			try{
-				std::thread(&TCPServer::TCPS_ready_channel, this).detach();
+				threads[i] = std::thread(&TCPServer::TCPS_ready_channel, this, i);
 			}catch(std::exception& e){
 				throw;
 			}
 			
 		} // end loop for every esp32
-	
+		
+		/*
+		Before going to the next phase, the main thread will wait all the other threads
+		(that have an execution flow) to terminate their tasks on the ready socket.
+		*/
+		for(int j = 0; j < MAX_ESP32_NUM; j++){
+			if(threads[j].joinable())
+				threads[j].join();
+		}
 }
 
-void TCPServer::TCPS_ready_channel(){
+void TCPServer::TCPS_ready_channel(int esp_id){
+		
+	SOCKET sock;
 	
-	
+	try{
+		addrinfo h, *ainfo;
+		ZeroMemory(&h, sizeof(h));
+		h.ai_family = AF_INET;
+		h.ai_socktype = SOCK_STREAM;
+		h.ai_protocol = IPPROTO_TCP;
+		h.ai_flags = AI_PASSIVE;
+		// converting the port number in a format getaddrinfo understands
+		std::string s = std::to_string(esp_list[esp_id].port);
+		// socket operations
+		if (((getaddrinfo(NULL, s.c_str(), &h, &ainfo)) != 0))
+			throw std::runtime_error("CHILD THREAD [READY] - getaddrinfo() failed with error ");
+		sock = socket(ainfo->ai_family, ainfo->ai_socktype, ainfo->ai_protocol);
+		if (sock < 0){
+			freeaddrinfo(ainfo);
+			throw std::runtime_error("CHILD THREAD [READY] - socket() failed with error ");
+		}
+		ready_sockets.push(sock);
+		if(bind(sock, ainfo->ai_addr, (int)ainfo->ai_addrlen) == SOCKET_ERROR)
+			throw TCPServer_exception("CHILD THREAD [READY] - bind() failed");
+		if(listen(sock, 1) == SOCKET_ERROR)
+			throw TCPServer_exception("CHILD THREAD [READY] - listen() failed with error ");
+		while(1) {
+			SOCKET c_sock = accept(sock, NULL, NULL);
+			if(c_sock == INVALID_SOCKET)
+				throw TCPServer_exception("CHILD THREAD [READY] - accept() failed with error ");
+			
+			std::cout << "*** New request accepted from ESP with id " << esp_id << " on port " << s << ".\n";
+			
+			// waitin to receive a READY message
+			char recvbuf[5];
+			int res;
+			for (int i = 0; i < 5 ; i = i + result)
+				res = recv(c_sock, recvbuf+i, 5-i, 0);
+			
+			if(res > 0){
+				// if it actually is a READY message
+				if(memcmp(recvbuf, READY_MSG_H, 5) == 0){
+					
+					/*
+					Once the ready packet is arrived, notify all the threads waiting
+					to answer READY to the clients.
+					*/
+					{
+						std::unique_lock<std::mutex> ul(mtx);
+						threads_to_wait_for--;
+						cvar.notify_all();
+					}
+					
+					/*
+					Once every thread has received the ready packet, the threads can tell the
+					esp32 to begin sniffing.
+					*/
+					std::unique_lock<std::mutex> ul(mtx);
+					cvar.wait(ul, [this](){ return threads_to_wait_for == 0; });
+					
+					char sendbuf[5];
+					strncpy(sendbuf, READY_MSG_H, 5);
+					
+					send_result = send(c_sock, sendbuf, 5, 0);
+					if(send_result == SOCKET_ERROR){
+						// connection reset by peer
+						if(WSAGetLastError() == 10054){
+							continue;
+						}
+						else{
+							throw TCPServer_exception("CHILD THREAD [READY] - send() failed with error ");
+						}
+					}
+					break;					
+				}
+				// Incorrect formatting of the request; ignore it.
+				else{
+					continue;
+				}
+			}
+			else if (result < 0){
+				throw TCPServer_exception("CHILD THREAD [READY] - recv() failed with error ");
+			}
+		}
+	}
+	catch(TCPServer_exception& e){
+			std::cout << e.what() << WSAGetLastError() << std::endl;
+			freeaddrinfo(aresult);
+			closesocket(sock);
+		}
+	catch(std::exception& e){
+		std::cout << e.what() << std::endl;
+	}
+
 }
 
 void TCPServer::TCPS_requests_loop(){
@@ -361,6 +473,13 @@ void TCPServer::TCPS_service(){
 	}
 
 	std::cout << "Child thread correctly ended" << std::endl;
+}
+
+void TCPServer::TCPS_close_listen_socket(){
+	result = closesocket(listen_socket);
+	if(result == SOCKET_ERROR){
+		throw TCPServer_exception("closesocket() failed with error ");
+	}
 }
 
 void TCPServer::TCPS_shutdown(){
