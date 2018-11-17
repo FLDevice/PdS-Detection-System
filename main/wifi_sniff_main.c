@@ -27,7 +27,6 @@
  CONSTANTS, GLOBAL VARIABLES AND FUNCTIONS
 *******************************************/
 
-//                                                                ADDED BY ROBY
 const char INIT_MSG_H[5]= "INIT";
 const char READY_MSG_H[6] = "READY";
 uint8_t mac_address[6];
@@ -45,7 +44,6 @@ uint8_t count = 0;
 static wifi_country_t wifi_country = {.cc="CN", .schan=1, .nchan=13, .policy=WIFI_COUNTRY_POLICY_AUTO};
 static EventGroupHandle_t wifi_event_group;
 
-//                                                                ADDED BY ROBY
 void esp_initialization();
 void esp_is_ready();
 
@@ -219,7 +217,7 @@ void app_main()
   // Arguments:
   // Pointer to function - Name of the task - Size of task stack - Parameters for the task
   // Priority of the task - Handle by which the created task can be referenced.
-  xTaskCreate(timer_example_evt_task, "timer_evt_task", 2048, NULL, 5, NULL);
+  //xTaskCreate(timer_example_evt_task, "timer_evt_task", 2048, NULL, 5, NULL);
 
   //xTaskCreate(&tcp_client,"tcp_client",4048,NULL,5,NULL);
 }
@@ -268,22 +266,6 @@ void wifi_sniffer_init(void)
 	ESP_LOGI(TAG,"Starting wifi\n");
 	ESP_ERROR_CHECK(esp_wifi_start());
 	
-	//                                                                ADDED BY ROBY
-	
-	//Initialization of the ESP --> connection with the server
-	esp_initialization();
-	
-	//Check if the server is ready every 5 seconds
-	while (!ready) {
-		esp_is_ready();
-		sleep(5000);
-	}
-	
-	
-	// Set promiscuous mode and register the RX callback function.
-	// Each time a packet is received, the registered callback function will be called.
-	esp_wifi_set_promiscuous(true);
-	esp_wifi_set_promiscuous_rx_cb(&wifi_sniffer_packet_handler);
 }
 
 static esp_err_t event_handler(void *ctx, system_event_t *event)
@@ -291,17 +273,35 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 	bool check;
     switch(event->event_id) {
     case SYSTEM_EVENT_STA_START:
+		printf("\nSYSTEM_EVENT_STA_START\n");
         wifi_connect();
         break;
     case SYSTEM_EVENT_STA_GOT_IP:
+		printf("\nSYSTEM_EVENT_STA_GOT_IP\n");
         xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
+	
+		//Initialization of the ESP --> connection with the server
+		esp_initialization();
+		//Check if the server is ready every 5 seconds
+		while (!ready) {
+			esp_is_ready();
+			sleep(5000);
+		}
+		// Set promiscuous mode and register the RX callback function.
+		// Each time a packet is received, the registered callback function will be called.
+		esp_wifi_set_promiscuous(true);
+		esp_wifi_set_promiscuous_rx_cb(&wifi_sniffer_packet_handler);
         break;
+	case SYSTEM_EVENT_STA_CONNECTED:
+		printf("\nSYSTEM_EVENT_STA_CONNECTED\n");
+		break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
+		printf("\nSYSTEM_EVENT_STA_DISCONNECTED\n");
     	esp_wifi_get_promiscuous(&check);
-    	if (check) {
+    	//if (check) {
     		esp_wifi_connect();
     		xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
-    	}
+    	//}
     	break;
     default:
         break;
@@ -310,6 +310,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 }
 
 void wifi_connect(){
+		
     wifi_config_t cfg = {
         .sta = {
             .ssid = SSID,
@@ -402,12 +403,11 @@ void esp_initialization() {
     }	
 }
 
-//                                                                ADDED BY ROBY
 void esp_is_ready() {
 	struct sockaddr_in tcpServerAddr;
     tcpServerAddr.sin_addr.s_addr = inet_addr(TCPServerIP);
     tcpServerAddr.sin_family = AF_INET;
-    tcpServerAddr.sin_port = htons(TCPServerPort);
+    tcpServerAddr.sin_port = htons(READY_PORT);
     int s;
 	
 	s = socket(AF_INET, SOCK_STREAM, 0);
@@ -426,7 +426,7 @@ void esp_is_ready() {
 	ESP_LOGI(TAG, "Connected to the server\n");
 		
 	//SENDING READY REQUEST MESSAGE TO THE SERVER
-	if (write(s, INIT_MSG_H, 5) == -1){
+	if (write(s, READY_MSG_H, 5) == -1){
 		ESP_LOGE(TAG, "Sending of READY failed\n");
 		close(s);
 		vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -436,23 +436,18 @@ void esp_is_ready() {
 		ESP_LOGI(TAG, "READY sent\n");
 	
 	//READING THE READY STATE FROM THE SERVER
-	char recv[6];
-	if (read(s, recv, 6) == -1) {
+	char recv[5];
+	if (read(s, recv, 5) == -1) {
 		ESP_LOGE(TAG, "read failed\n");
+		printf("%s\n", recv);
 		close(s);
 		vTaskDelay(1000 / portTICK_PERIOD_MS);
 		return;
 	}
 	else if (strncmp(recv, "READY", 5) == 0) {
 		ESP_LOGI(TAG, "READY state received from server\n");
-		if (recv[5] == 0x0)
-			return;
-		else if (recv[5] == 0x1) {
-			ready = 1;
-			return;
-		}
+		ready = 1;
 	}
-	
 }
 
 
@@ -467,7 +462,7 @@ void tcp_client(void *pvParam){
     tcpServerAddr.sin_family = AF_INET;
     tcpServerAddr.sin_port = htons(TCPServerPort);
     int s, r;
-    char recv_buf[64];
+	char recv_buf[64];
 
     while(1){
     	xEventGroupWaitBits(wifi_event_group,CONNECTED_BIT,false,true,portMAX_DELAY);
