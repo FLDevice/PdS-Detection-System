@@ -44,6 +44,14 @@ uint8_t count = 0;
 static wifi_country_t wifi_country = {.cc="CN", .schan=1, .nchan=13, .policy=WIFI_COUNTRY_POLICY_AUTO};
 static EventGroupHandle_t wifi_event_group;
 
+/*** TIMER ***/
+xQueueHandle timer_queue;
+
+/*** Variables for Peterson's algorithm ***/
+int in1 = false; // clear_probe_buffer
+int in2 = false; // wifi_sniffer_packet_handler
+int turn = 1; // 1: clear_probe_buffer | 2: wifi_sniffer_packet_handler
+
 void esp_initialization();
 void esp_is_ready();
 
@@ -57,12 +65,6 @@ ssize_t send_probe_buffer(int sock);
 void clear_probe_buffer(void);
 void check_list_size();
 void tcp_client_timer_version();
-
-/******************************************
- *                 TIMER
- ******************************************/
-xQueueHandle timer_queue;
-int flag_timer = 0;
 
 /*
  * A simple helper function to print the raw timer counter value
@@ -167,7 +169,6 @@ static void timer_example_evt_task(void *arg)
     while (1) {
         timer_event_t evt;
         xQueueReceive(timer_queue, &evt, portMAX_DELAY);
-        flag_timer = 1;
 
         /* Print information that the timer reported an event */
         if (evt.type == TEST_WITHOUT_RELOAD) {
@@ -190,8 +191,6 @@ static void timer_example_evt_task(void *arg)
         print_timer_counter(task_counter_value);
 
         tcp_client_timer_version();
-
-        flag_timer = 0;
     }
 }
 
@@ -217,7 +216,7 @@ void app_main()
   // Arguments:
   // Pointer to function - Name of the task - Size of task stack - Parameters for the task
   // Priority of the task - Handle by which the created task can be referenced.
-  //xTaskCreate(timer_example_evt_task, "timer_evt_task", 2048, NULL, 5, NULL);
+  xTaskCreate(timer_example_evt_task, "timer_evt_task", 2048, NULL, 5, NULL);
 
   //xTaskCreate(&tcp_client,"tcp_client",4048,NULL,5,NULL);
 }
@@ -230,9 +229,9 @@ void app_main()
 
 void wifi_sniffer_init(void)
 {
-	
+
 	printf("wifi_sniffer_init\n");
-	
+
 	esp_err_t ret = nvs_flash_init();
 	if (ret == ESP_ERR_NVS_NO_FREE_PAGES) {
 			ESP_ERROR_CHECK(nvs_flash_erase());
@@ -249,23 +248,23 @@ void wifi_sniffer_init(void)
 	}
 	head->next = NULL;
 	curr = head;
-	
+
 	/*** Init Wifi ***/
 	tcpip_adapter_init();	// Creates an LwIP core task and initialize LwIP-related work.
 	// Create the Wi-Fi driver task and initialize the Wi-Fi driver.
 	ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL)); // Create a system Event task and initialize an application event�s callback function.
 	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-	
+
 	/*** Configure WiFi ***/
 	ESP_ERROR_CHECK(esp_wifi_set_country(&wifi_country)); // Set country for channel range [1, 13]
 	ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
 	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-	
+
 	/*** Start WiFi ***/
 	ESP_LOGI(TAG,"Starting wifi\n");
 	ESP_ERROR_CHECK(esp_wifi_start());
-	
+
 }
 
 static esp_err_t event_handler(void *ctx, system_event_t *event)
@@ -279,7 +278,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
     case SYSTEM_EVENT_STA_GOT_IP:
 		printf("\nSYSTEM_EVENT_STA_GOT_IP\n");
         xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
-	
+
 		//Initialization of the ESP --> connection with the server
 		esp_initialization();
 		//Check if the server is ready every 5 seconds
@@ -310,7 +309,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 }
 
 void wifi_connect(){
-		
+
     wifi_config_t cfg = {
         .sta = {
             .ssid = SSID,
@@ -335,7 +334,7 @@ void esp_initialization() {
 			printf(":");
 	}
 	printf("\n");
-	
+
 	//GETTING INITIALIZATION CONFIRM BY SERVER
     struct sockaddr_in tcpServerAddr;
     tcpServerAddr.sin_addr.s_addr = inet_addr(TCPServerIP);
@@ -358,7 +357,7 @@ void esp_initialization() {
 			continue;
 		}
 		ESP_LOGI(TAG, "Connected to the server\n");
-		
+
 		//SENDING INIT MESSAGE TO THE SERVER
 		if (write(s, INIT_MSG_H, 4) < 0){
 			ESP_LOGE(TAG, "Sending of INIT failed\n");
@@ -368,7 +367,7 @@ void esp_initialization() {
 		}
 		else
 			ESP_LOGI(TAG, "INIT sent\n");
-		
+
 		//SENDING MAD ADDRESS TO THE SERVER
 		if (write(s, mac_address, 6) < 0){
 			ESP_LOGE(TAG, "Sending of MAC address failed\n");
@@ -378,7 +377,7 @@ void esp_initialization() {
 		}
 		else
 			ESP_LOGI(TAG, "MAC address sent\n");
-		
+
 		//READING THE INIT CONFIRM FROM THE SERVER
 		char recv[8];
 		if ((read(s, recv, 8)) < 0) {
@@ -400,7 +399,7 @@ void esp_initialization() {
 		}
 		close(s);
 		break;
-    }	
+    }
 }
 
 void esp_is_ready() {
@@ -409,7 +408,7 @@ void esp_is_ready() {
     tcpServerAddr.sin_family = AF_INET;
     tcpServerAddr.sin_port = htons(READY_PORT);
     int s;
-	
+
 	s = socket(AF_INET, SOCK_STREAM, 0);
 	if(s < 0) {
 		ESP_LOGE(TAG, "Failed to allocate socket");
@@ -424,7 +423,7 @@ void esp_is_ready() {
 		return;
 	}
 	ESP_LOGI(TAG, "Connected to the server\n");
-		
+
 	//SENDING READY REQUEST MESSAGE TO THE SERVER
 	if (write(s, READY_MSG_H, 5) == -1){
 		ESP_LOGE(TAG, "Sending of READY failed\n");
@@ -434,7 +433,7 @@ void esp_is_ready() {
 	}
 	else
 		ESP_LOGI(TAG, "READY sent\n");
-	
+
 	//READING THE READY STATE FROM THE SERVER
 	char recv[5];
 	if (read(s, recv, 5) == -1) {
@@ -556,9 +555,9 @@ void tcp_client_timer_version(){
 				continue;
 			}
 			ESP_LOGI(TAG, "Connected to the server");
-			
-			
-			
+
+
+
 			if(write(s, &INIT_MSG_H, 4) != 1){
 				ESP_LOGE(TAG, "Send of INIT failed");
 				close(s);
@@ -567,7 +566,7 @@ void tcp_client_timer_version(){
 			}
 			else
 				ESP_LOGE(TAG, "INIT sent");
-			
+
 			/*
 
 			char c = count + '0';
@@ -585,9 +584,17 @@ void tcp_client_timer_version(){
 				vTaskDelay(1000 / portTICK_PERIOD_MS);
 				continue;
 			}*/
-			/* WARN!!! Does it require a lock? */
-			clear_probe_buffer();
-	    ESP_LOGI(TAG, "Socket send success");
+
+      /* Clear the probe buffer. In order to guarantee concurrency,
+      *  Peterson's Algorithm is used.
+      */
+      in1 = true;
+      turn = 2;
+      while (in2 && turn == 2) // Start of the critical section
+            ;
+      clear_probe_buffer();
+      ESP_LOGI(TAG, "Socket send success");
+      in1 = false; // End of the critical section
 
 	    /*if(send_res != 0){
 				do {
@@ -626,9 +633,6 @@ void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type)
 		//esp_wifi_set_promiscuous(false);
 		return;
 	}*/
-	if (flag_timer == 1) {
-		return;
-	}
 
 	if (type != WIFI_PKT_MGMT)
 		return;
@@ -661,6 +665,13 @@ void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type)
 	for (int i=0, j=packet_length-4; i<4; i++, j++)
 		b.crc[i] = ipkt->payload[j];
 
+  /* In order to guarantee concurrency, Peterson's Algorithm is used.
+  */
+  in2 = true;
+  turn = 1;
+  while(in1 && turn == 1) // Start of the critical section
+    ;
+
 	// Add buffer to buffer_list
 	curr->data = b;
 
@@ -675,6 +686,8 @@ void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type)
 	} else {
 		ESP_LOGE(MEM_ERR,"Couldn't allocate new element of the buffer list.\n");
 	}
+
+  in2 = false; // End of the critical section
 }
 
 
