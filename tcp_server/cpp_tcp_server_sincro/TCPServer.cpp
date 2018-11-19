@@ -51,7 +51,7 @@ TCPServer::TCPServer(){
 			if(WSAStartup(MAKEWORD(2, 2), &wsadata) != 0) throw std::runtime_error("WSAStartup() failed with error ");
 			
 			//---------------//---------------//---------------
-			TCPS_initialize(aresult);
+			TCPS_initialize();
 			std::cout << "TCP Server is correctly initialized with " << esp_number << " ESP32." << std::endl;
 
 			TCPS_socket();
