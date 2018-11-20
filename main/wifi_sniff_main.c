@@ -216,7 +216,7 @@ void app_main()
   // Arguments:
   // Pointer to function - Name of the task - Size of task stack - Parameters for the task
   // Priority of the task - Handle by which the created task can be referenced.
-  xTaskCreate(timer_example_evt_task, "timer_evt_task", 2048, NULL, 5, NULL);
+  //xTaskCreate(timer_example_evt_task, "timer_evt_task", 2048, NULL, 5, NULL);
 
   //xTaskCreate(&tcp_client,"tcp_client",4048,NULL,5,NULL);
 }
@@ -281,13 +281,15 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 
 		//Initialization of the ESP --> connection with the server
 		esp_initialization();
+    esp_is_ready();
 		//Check if the server is ready every 5 seconds
-		while (!ready) {
+		/*while (!ready) {
 			esp_is_ready();
 			sleep(5000);
-		}
+		}*/
 		// Set promiscuous mode and register the RX callback function.
 		// Each time a packet is received, the registered callback function will be called.
+    xTaskCreate(timer_example_evt_task, "timer_evt_task", 2048, NULL, 5, NULL);
 		esp_wifi_set_promiscuous(true);
 		esp_wifi_set_promiscuous_rx_cb(&wifi_sniffer_packet_handler);
         break;
@@ -461,7 +463,7 @@ void tcp_client(void *pvParam){
     tcpServerAddr.sin_family = AF_INET;
     tcpServerAddr.sin_port = htons(TCPServerPort);
     int s, r;
-	char recv_buf[64];
+	  char recv_buf[64];
 
     while(1){
     	xEventGroupWaitBits(wifi_event_group,CONNECTED_BIT,false,true,portMAX_DELAY);
@@ -557,7 +559,7 @@ void tcp_client_timer_version(){
 			ESP_LOGI(TAG, "Connected to the server");
 
 
-
+      /*
 			if(write(s, &INIT_MSG_H, 4) != 1){
 				ESP_LOGE(TAG, "Send of INIT failed");
 				close(s);
@@ -567,7 +569,7 @@ void tcp_client_timer_version(){
 			else
 				ESP_LOGE(TAG, "INIT sent");
 
-			/*
+			*/
 
 			char c = count + '0';
 			if(write(s, &c, 1) != 1){
@@ -583,33 +585,33 @@ void tcp_client_timer_version(){
 				close(s);
 				vTaskDelay(1000 / portTICK_PERIOD_MS);
 				continue;
-			}*/
+			}
 
-      /* Clear the probe buffer. In order to guarantee concurrency,
-      *  Peterson's Algorithm is used.
-      */
-      in1 = true;
-      turn = 2;
-      while (in2 && turn == 2) // Start of the critical section
-            ;
-      clear_probe_buffer();
-      ESP_LOGI(TAG, "Socket send success");
-      in1 = false; // End of the critical section
+	    if(send_res != 0){
+        /* Clear the probe buffer. In order to guarantee concurrency,
+        *  Peterson's Algorithm is used.
+        */
+        in1 = true;
+        turn = 2;
+        while (in2 && turn == 2) // Start of the critical section
+              ;
+        clear_probe_buffer();
+        ESP_LOGI(TAG, "Socket send success");
+        in1 = false; // End of the critical section
 
-	    /*if(send_res != 0){
 				do {
 					bzero(recv_buf, sizeof(recv_buf));
 					r = read(s, recv_buf, PACKET_SIZE);
-					printf("Received from server: ");  */
+					printf("Received from server: ");
 					/*for(int i = 0; i < r; i++) {
 						putchar(recv_buf[i]);
 					}*/
-					/*print_proberequest((struct buffer *)recv_buf);
+					print_proberequest((struct buffer *)recv_buf);
 					printf("\n");
 				} while(r < PACKET_SIZE);
 
 				ESP_LOGI(TAG, "Done reading from socket. Last read return=%d errno=%d\r", r, errno);
-	    }*/
+	    }
 
 	    close(s);
 	    ESP_LOGI(TAG, "New request in 5 seconds");
@@ -625,15 +627,6 @@ void tcp_client_timer_version(){
 
 void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type)
 {
-	if (ready == 0) {
-		return;
-	}
-	// If count == 20, stop sniffing
-	/*if (count >= 10) {
-		//esp_wifi_set_promiscuous(false);
-		return;
-	}*/
-
 	if (type != WIFI_PKT_MGMT)
 		return;
 
