@@ -579,26 +579,28 @@ void tcp_client_timer_version(){
 				continue;
 			}
 
+      /* Clear the probe buffer. In order to guarantee concurrency,
+      *  Peterson's Algorithm is used.
+      */
+      in1 = true;
+      turn = 2;
+      while (in2 && turn == 2) // Start of the critical section
+            ;
+
 			ssize_t send_res;
 			if((send_res = send_probe_buffer(s)) < 0){
+        in1 = false; // End of the critical section
 				ESP_LOGE(TAG, "Send of buffer failed");
 				close(s);
 				vTaskDelay(1000 / portTICK_PERIOD_MS);
 				continue;
 			}
 
-	    if(send_res != 0){
-        /* Clear the probe buffer. In order to guarantee concurrency,
-        *  Peterson's Algorithm is used.
-        */
-        in1 = true;
-        turn = 2;
-        while (in2 && turn == 2) // Start of the critical section
-              ;
-        clear_probe_buffer();
-        ESP_LOGI(TAG, "Socket send success");
-        in1 = false; // End of the critical section
+      clear_probe_buffer();
+      ESP_LOGI(TAG, "Socket send success");
+      in1 = false; // End of the critical section
 
+	    if(send_res != 0){
 				do {
 					bzero(recv_buf, sizeof(recv_buf));
 					r = read(s, recv_buf, PACKET_SIZE);
