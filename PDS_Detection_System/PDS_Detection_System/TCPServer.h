@@ -53,6 +53,43 @@ public:
 		coordinate_y = y;
 		port = p;
 	}
+
+
+	/** Store an esp device in the database */
+	void storeEsp() {
+		try {
+			// Connect to server using a connection URL
+			mysqlx::Session session("localhost", 33060, "pds_user", "password");
+
+			try {
+				mysqlx::Schema myDb = session.getSchema("pds_db");
+
+				// Accessing the packet table
+				mysqlx::Table espTable = myDb.getTable("ESP");
+
+				// Computing the address
+				char buff[50];
+				snprintf(buff, sizeof(buff), "%02x:%02x:%02x:%02x:%02x:%02x", mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5]);
+				std::string address = buff;
+
+				// Insert SQL Table data
+				espTable.insert("mac", "x", "y")
+					.values(address, coordinate_x, coordinate_y).execute();
+			}
+			catch (std::exception &err) {
+				std::cout << "The following error occurred: " << err.what() << std::endl;
+
+				// Exit with error code
+				exit(1);
+			}
+		}
+		catch (std::exception &err) {
+			std::cout << "The database session could not be opened: " << err.what() << std::endl;
+
+			// Exit with error code
+			exit(1);
+		}
+	}
 };
 
 /** To use, just create a TCPServer object. */

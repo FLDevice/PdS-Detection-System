@@ -191,6 +191,7 @@ void TCPServer::TCPS_ask_participation() {
 
 					// arguments: id, mac address, x pos, y pos, ready port for socket creation
 					ESP32 espdata(i, mac, posx, posy, port);
+					espdata.storeEsp();
 					esp_list.push_back(espdata);
 
 					// return to the outer for loop
@@ -511,6 +512,17 @@ void TCPServer::setupDB()
 	create += " addr VARCHAR(32), ";
 	create += " ssid VARCHAR(32), ";
 	create += " crc VARCHAR(8)) ";
+
+	session.sql(create).execute();
+
+	quoted_name = std::string("`pds_db`.`ESP`");
+
+	session.sql(std::string("DROP TABLE IF EXISTS") + quoted_name).execute();
+	create = "CREATE TABLE ";
+	create += quoted_name;
+	create += " (mac VARCHAR(32) NOT NULL PRIMARY KEY,";
+	create += " x INT NOT NULL,";
+	create += " y INT NOT NULL)";
 
 	session.sql(create).execute();
 
