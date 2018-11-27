@@ -40,17 +40,12 @@ static const char *MEM_ERR="memory_error";
 
 struct buffer *buf;
 struct buffer_list *head, *curr;
-uint8_t count = 0;
+uint8_t count = 0, sniff_count;
 static wifi_country_t wifi_country = {.cc="CN", .schan=1, .nchan=13, .policy=WIFI_COUNTRY_POLICY_AUTO};
 static EventGroupHandle_t wifi_event_group;
 
 /*** TIMER ***/
 xQueueHandle timer_queue;
-
-/*** Variables for Peterson's algorithm ***/
-int in1 = false; // clear_probe_buffer
-int in2 = false; // wifi_sniffer_packet_handler
-int turn = 1; // 1: clear_probe_buffer | 2: wifi_sniffer_packet_handler
 
 void esp_initialization();
 void esp_is_ready();
@@ -58,11 +53,9 @@ void esp_is_ready();
 void wifi_sniffer_init(void);
 static esp_err_t event_handler(void *ctx, system_event_t *event);
 void wifi_connect();
-void tcp_client(void *pvParam);
 static void wifi_sniffer_packet_handler(void *buff, wifi_promiscuous_pkt_type_t type);
 void print_proberequest(struct buffer* buf);
 ssize_t send_probe_buffer(int sock);
-void clear_probe_buffer(void);
 void check_list_size();
 void tcp_client_timer_version();
 
@@ -170,6 +163,10 @@ static void timer_example_evt_task(void *arg)
         timer_event_t evt;
         xQueueReceive(timer_queue, &evt, portMAX_DELAY);
 
+        // Reset the count of the esp received packets.
+        sniff_count = count;
+        count = 0;
+
         /* Print information that the timer reported an event */
         if (evt.type == TEST_WITHOUT_RELOAD) {
             printf("\n    Example timer without reload\n");
@@ -211,7 +208,7 @@ void app_main()
 
   timer_queue = xQueueCreate(10, sizeof(timer_event_t));
   //example_tg0_timer_init(TIMER_0, TEST_WITHOUT_RELOAD, TIMER_INTERVAL0_SEC);
-  example_tg0_timer_init(TIMER_1, TEST_WITH_RELOAD,    TIMER_INTERVAL1_SEC);
+  example_tg0_timer_init(TIMER_1, TEST_WITH_RELOAD, TIMER_INTERVAL1_SEC);
   // See FreeRTOS API - Create a new task and add it to the list of tasks that are ready to run
   // Arguments:
   // Pointer to function - Name of the task - Size of task stack - Parameters for the task
@@ -455,84 +452,6 @@ void esp_is_ready() {
 /******************************************
 			TCP CONNECTION
 *******************************************/
-
-void tcp_client(void *pvParam){
-    ESP_LOGI(TAG,"tcp_client task started \n");
-    struct sockaddr_in tcpServerAddr;
-    tcpServerAddr.sin_addr.s_addr = inet_addr(TCPServerIP);
-    tcpServerAddr.sin_family = AF_INET;
-    tcpServerAddr.sin_port = htons(TCPServerPort);
-    int s, r;
-	  char recv_buf[64];
-
-    while(1){
-    	xEventGroupWaitBits(wifi_event_group,CONNECTED_BIT,false,true,portMAX_DELAY);
-			s = socket(AF_INET, SOCK_STREAM, 0);
-			if(s < 0) {
-				ESP_LOGE(TAG, "Failed to allocate socket");
-				vTaskDelay(1000 / portTICK_PERIOD_MS);
-				continue;
-			}
-			ESP_LOGI(TAG, "Socket allocated");
-			 if(connect(s, (struct sockaddr *)&tcpServerAddr, sizeof(tcpServerAddr)) != 0) {
-				ESP_LOGE(TAG, "Socket connect failed, errno=%d\n", errno);
-				close(s);
-				vTaskDelay(4000 / portTICK_PERIOD_MS);
-				continue;
-			}
-			ESP_LOGI(TAG, "Connected to the server");
-			/*
-	        if( write(s , MESSAGE , strlen(MESSAGE)) < 0)
-	        {
-	            ESP_LOGE(TAG, "Send failed");
-	            close(s);
-	            vTaskDelay(4000 / portTICK_PERIOD_MS);
-	            continue;
-	        }*/
-
-			char c = count + '0';
-			if(write(s, &c, 1) != 1){
-				ESP_LOGE(TAG, "Send of *count* failed");
-				close(s);
-				vTaskDelay(4000 / portTICK_PERIOD_MS);
-				continue;
-			}
-
-			ssize_t send_res;
-			if((send_res = send_probe_buffer(s)) < 0){
-				ESP_LOGE(TAG, "Send of buffer failed");
-				close(s);
-				vTaskDelay(4000 / portTICK_PERIOD_MS);
-				continue;
-			}
-			/* WARN!!! Does it require a lock? */
-			clear_probe_buffer();
-	    ESP_LOGI(TAG, "Socket send success");
-
-	    if(send_res != 0){
-				do {
-					bzero(recv_buf, sizeof(recv_buf));
-					r = read(s, recv_buf, PACKET_SIZE);
-					printf("Received from server: ");
-					/*for(int i = 0; i < r; i++) {
-						putchar(recv_buf[i]);
-					}*/
-					print_proberequest((struct buffer *)recv_buf);
-					printf("\n");
-				} while(r < PACKET_SIZE);
-
-				ESP_LOGI(TAG, "Done reading from socket. Last read return=%d errno=%d\r", r, errno);
-	    }
-
-	    close(s);
-	    ESP_LOGI(TAG, "New request in 5 seconds");
-	    /*for(int i = 0; i < count; i++)
-	    	print_proberequest(&(buf[i]));*/
-	    vTaskDelay(5000 / portTICK_PERIOD_MS);
-  	}
-  	ESP_LOGI(TAG, "tcp_client task closed");
-}
-
 void tcp_client_timer_version(){
     ESP_LOGI(TAG,"tcp_client task started \n");
     struct sockaddr_in tcpServerAddr;
@@ -558,20 +477,7 @@ void tcp_client_timer_version(){
 			}
 			ESP_LOGI(TAG, "Connected to the server");
 
-
-      /*
-			if(write(s, &INIT_MSG_H, 4) != 1){
-				ESP_LOGE(TAG, "Send of INIT failed");
-				close(s);
-				vTaskDelay(1000 / portTICK_PERIOD_MS);
-				continue;
-			}
-			else
-				ESP_LOGE(TAG, "INIT sent");
-
-			*/
-
-			char c = count + '0';
+			char c = sniff_count + '0';
 			if(write(s, &c, 1) != 1){
 				ESP_LOGE(TAG, "Send of *count* failed");
 				close(s);
@@ -579,35 +485,22 @@ void tcp_client_timer_version(){
 				continue;
 			}
 
-      /* Clear the probe buffer. In order to guarantee concurrency,
-      *  Peterson's Algorithm is used.
-      */
-      in1 = true;
-      turn = 2;
-      while (in2 && turn == 2) // Start of the critical section
-            ;
-
 			ssize_t send_res;
 			if((send_res = send_probe_buffer(s)) < 0){
-        in1 = false; // End of the critical section
 				ESP_LOGE(TAG, "Send of buffer failed");
 				close(s);
 				vTaskDelay(1000 / portTICK_PERIOD_MS);
 				continue;
 			}
 
-      clear_probe_buffer();
       ESP_LOGI(TAG, "Socket send success");
-      in1 = false; // End of the critical section
 
 	    if(send_res != 0){
 				do {
 					bzero(recv_buf, sizeof(recv_buf));
 					r = read(s, recv_buf, PACKET_SIZE);
 					printf("Received from server: ");
-					/*for(int i = 0; i < r; i++) {
-						putchar(recv_buf[i]);
-					}*/
+
 					print_proberequest((struct buffer *)recv_buf);
 					printf("\n");
 				} while(r < PACKET_SIZE);
@@ -660,13 +553,6 @@ void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type)
 	for (int i=0, j=packet_length-4; i<4; i++, j++)
 		b.crc[i] = ipkt->payload[j];
 
-  /* In order to guarantee concurrency, Peterson's Algorithm is used.
-  */
-  in2 = true;
-  turn = 1;
-  while(in1 && turn == 1) // Start of the critical section
-    ;
-
 	// Add buffer to buffer_list
 	curr->data = b;
 
@@ -681,8 +567,6 @@ void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type)
 	} else {
 		ESP_LOGE(MEM_ERR,"Couldn't allocate new element of the buffer list.\n");
 	}
-
-  in2 = false; // End of the critical section
 }
 
 
@@ -693,43 +577,30 @@ void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type)
 ssize_t send_probe_buffer(int sock){
 	int buf_size = 0;
 	int temp;
-	if (count == 0)
+
+  // If the list is empty, exit from this function
+	if (sniff_count == 0)
 		return 0;
 
-	struct buffer_list *ptr;
-	for(ptr=head; ptr->next!=NULL; ptr = ptr->next) {
+  printf("%d Packets sniffed \n", sniff_count);
+
+	struct buffer_list *ptr, *aux_ptr;
+  ptr=head;
+
+	for(int i=0; i<sniff_count; i++) {
 		if( (temp = write(sock, &(ptr->data), sizeof(struct buffer))) < 0 )
 			return -1;
+
+    aux_ptr = ptr->next;
+    free(ptr);
+    ptr = aux_ptr;
+
 		buf_size = buf_size + temp;
 	}
+  head = ptr;
+
 	printf("Buffer size sent: %d \n", buf_size);
 	return 1;
-}
-
-void clear_probe_buffer(){
-	struct buffer_list *ptr, *temp;
-
-	//check_list_size(); // DEBUGGING: Prints the current count variable and the list size
-
-	if( count==0 )
-		return;
-
-	printf("%d Packets sniffed \n", count);
-
-	/* If at least a packet was read, then empty the list*/
-	ptr = head->next;
-	memset( &(head->data), 0, sizeof(struct buffer));
-	head->next = NULL;
-
-	for(; ptr->next!=NULL;) {
-		 temp = ptr->next;
-		 free(ptr);
-		 ptr = temp;
-	}
-
-	curr = head;
-
-	count = 0;
 }
 
 
