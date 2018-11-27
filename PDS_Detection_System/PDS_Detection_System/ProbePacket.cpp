@@ -23,7 +23,6 @@ void ProbePacket::print() {
 	printf("\n");
 }
 
-// ADDED
 void ProbePacket::print(long int last_update) {
 	last_update += timestamp / 1000000;
 

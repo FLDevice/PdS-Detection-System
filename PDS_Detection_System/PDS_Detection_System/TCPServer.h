@@ -35,15 +35,16 @@ public:
 
 /** represents a esp32 client as seen as the server */
 struct ESP32 {
-public:
-
+private:
 	uint8_t id;
 	uint8_t mac_address[6];
 	int coordinate_x;
 	int coordinate_y;
 	/* port used to create the ready channel */
 	int port;
+	long int time_since_last_update;
 
+public:
 	ESP32(int i, uint8_t* mac, int x, int y, int p) {
 		id = i;
 		for (int j = 0; j < 6; j++) {
@@ -52,11 +53,28 @@ public:
 		coordinate_x = x;
 		coordinate_y = y;
 		port = p;
+		update_time();
 	}
 
+	uint8_t *get_mac_address_ptr() {
+		return mac_address;
+	}
+
+	std::string get_mac_address_string() {
+		// Computing the address
+		char buff[50];
+		snprintf(buff, sizeof(buff), "%02x:%02x:%02x:%02x:%02x:%02x", mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5]);
+		std::string address = buff;
+
+		return address;
+	}
+
+	int get_port() {
+		return port;
+	}
 
 	/** Store an esp device in the database */
-	void storeEsp() {
+	void store_esp() {
 		try {
 			// Connect to server using a connection URL
 			mysqlx::Session session("localhost", 33060, "pds_user", "password");
@@ -67,14 +85,9 @@ public:
 				// Accessing the packet table
 				mysqlx::Table espTable = myDb.getTable("ESP");
 
-				// Computing the address
-				char buff[50];
-				snprintf(buff, sizeof(buff), "%02x:%02x:%02x:%02x:%02x:%02x", mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5]);
-				std::string address = buff;
-
 				// Insert SQL Table data
 				espTable.insert("mac", "x", "y")
-					.values(address, coordinate_x, coordinate_y).execute();
+					.values(get_mac_address_string(), coordinate_x, coordinate_y).execute();
 			}
 			catch (std::exception &err) {
 				std::cout << "The following error occurred: " << err.what() << std::endl;
@@ -89,6 +102,10 @@ public:
 			// Exit with error code
 			exit(1);
 		}
+	}
+
+	void update_time() {
+		time_since_last_update = static_cast<long int> (time(NULL));
 	}
 };
 
@@ -179,5 +196,7 @@ private:
 	void setupDB();
 
 	void storePackets(int count);
+
+	ESP32 get_esp_instance(uint8_t* mac);
 };
 

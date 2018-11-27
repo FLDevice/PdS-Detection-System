@@ -30,7 +30,7 @@ TCPServer::TCPServer() {
 	}
 	std::cout << std::endl;
 
-	time_since_last_update = static_cast<long int> (time(NULL));; // ADDED
+	time_since_last_update = static_cast<long int> (time(NULL));
 	retry = MAX_RETRY_TIMES;
 	threads_to_wait_for = esp_number;
 
@@ -191,7 +191,7 @@ void TCPServer::TCPS_ask_participation() {
 
 					// arguments: id, mac address, x pos, y pos, ready port for socket creation
 					ESP32 espdata(i, mac, posx, posy, port);
-					espdata.storeEsp();
+					espdata.store_esp();
 					esp_list.push_back(espdata);
 
 					// return to the outer for loop
@@ -270,7 +270,7 @@ void TCPServer::TCPS_ready_channel(int esp_id) {
 		h.ai_protocol = IPPROTO_TCP;
 		h.ai_flags = AI_PASSIVE;
 		// converting the port number in a format getaddrinfo understands
-		std::string s = std::to_string(esp_list[esp_id].port);
+		std::string s = std::to_string(esp_list[esp_id].get_port());
 		// socket operations
 		if (((getaddrinfo(NULL, s.c_str(), &h, &ainfo)) != 0))
 			throw std::runtime_error("CHILD THREAD [READY] - getaddrinfo() failed with error ");
@@ -562,4 +562,14 @@ void TCPServer::storePackets(int count) {
 		// Exit with error code
 		exit(1);
 	}
+}
+
+ESP32 TCPServer::get_esp_instance(uint8_t* mac) {
+	for (int i = 0; i < esp_number; i++) {
+		if (memcmp(mac, esp_list[i].get_mac_address_ptr(), 6)) {
+			return esp_list[i];
+		}
+	}
+
+	throw std::exception("No esp with such an ESP has been found.");
 }
