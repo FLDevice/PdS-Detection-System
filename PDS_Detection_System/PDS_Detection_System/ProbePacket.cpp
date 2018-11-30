@@ -50,7 +50,7 @@ void ProbePacket::print(long int last_update) {
 *
 *	long int last_update: The last time when the local computer timestamp has been properly recorded.
 */
-void ProbePacket::storeInDB(mysqlx::Table packetTable, long int last_update) {
+void ProbePacket::storeInDB(mysqlx::Table packetTable, long int last_update, uint8_t espid) {
 	
 	// Computing the timestamp
 	time_t rawtime = last_update + timestamp / 1000000;
@@ -82,5 +82,5 @@ void ProbePacket::storeInDB(mysqlx::Table packetTable, long int last_update) {
 
 	// Insert SQL Table data
 	packetTable.insert("esp_id", "timestamp", "channel", "seq_ctl", "rssi", "addr", "ssid", "crc")
-		.values(1, receive_time, channel, ctl_to_store, rssi, address, ssid_to_store, crc_to_store).execute();
+		.values(espid, receive_time, channel, ctl_to_store, rssi, address, ssid_to_store, crc_to_store).execute();
 }

@@ -391,10 +391,24 @@ void TCPServer::TCPS_service() {
 
 	while (retry_child > 0) {
 		try {
+			result = 0;
+
+			// receiving mac address from client
+			uint8_t mac[6];
+			char rbuff[6];
+			for (int i = 0; i < 6; i = i + result)
+				result = recv(client_socket, rbuff + i, 6 - i, 0);
+
+			if(result < 0) throw TCPServer_exception("mac_addr recv() failed with error ");
+
+			memcpy(mac, rbuff, 6);
+			ESP32 this_esp = get_esp_instance(mac);
+			uint8_t esp_id = this_esp.get_id();
+
 			// receiving packet counter from client
 			recv(client_socket, &c, 1, 0);
 			count = c - '0';
-			printf("Receiving %u packets\n", count);
+			printf("Receiving %u packets from ESP with MAC address %02x:%02x:%02x:%02x:%02x:%02x\n", count, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
 			// create space for the incoming packets
 			recvbuf = (char*)malloc(count*PACKET_SIZE);
@@ -411,8 +425,8 @@ void TCPServer::TCPS_service() {
 				std::cout << "Buffer size: " << recvbuflen << std::endl;
 				std::cout << "Current Time: " << std::time(NULL) << ", passed since last update: " << curTime - time_since_last_update << std::endl; // ADDED
 
-																																					 // store and print them
-				storePackets(count);
+				// store and print them
+				storePackets(count, esp_id);
 
 				/* Old version
 
@@ -529,7 +543,7 @@ void TCPServer::setupDB()
 	std::cout << "Database correctly initialized." << std::endl;
 }
 
-void TCPServer::storePackets(int count) {
+void TCPServer::storePackets(int count, uint8_t espid) {
 	try {
 		// Connect to server using a connection URL
 		mysqlx::Session session("localhost", 33060, "pds_user", "password");
@@ -546,7 +560,7 @@ void TCPServer::storePackets(int count) {
 				pp_vector.push(pp);
 				printf("%d \t", i);
 				pp.print(time_since_last_update); // MODIFIED
-				pp.storeInDB(packetTable, time_since_last_update);
+				pp.storeInDB(packetTable, time_since_last_update, espid);
 			}
 		}
 		catch (std::exception &err) {
@@ -566,10 +580,11 @@ void TCPServer::storePackets(int count) {
 
 ESP32 TCPServer::get_esp_instance(uint8_t* mac) {
 	for (int i = 0; i < esp_number; i++) {
-		if (memcmp(mac, esp_list[i].get_mac_address_ptr(), 6)) {
+		if (memcmp(mac, esp_list[i].get_mac_address_ptr(), 6) == 0) {
+			//printf("ESP LIST:\n id=%i\t, mac=%02x:%02x:%02x:%02x:%02x:%02x\n", );
 			return esp_list[i];
 		}
 	}
 
-	throw std::exception("No esp with such an ESP has been found.");
+	throw std::exception("No esp with such a MAC has been found.");
 }

@@ -462,38 +462,50 @@ void tcp_client_timer_version(){
     char recv_buf[64];
 
     for(int i = 0; i < 3; i++) {
-			s = socket(AF_INET, SOCK_STREAM, 0);
-			if(s < 0) {
-				ESP_LOGE(TAG, "Failed to allocate socket");
-				vTaskDelay(1000 / portTICK_PERIOD_MS);
-				continue;
-			}
-			ESP_LOGI(TAG, "Socket allocated");
-			 if(connect(s, (struct sockaddr *)&tcpServerAddr, sizeof(tcpServerAddr)) != 0) {
-				ESP_LOGE(TAG, "Socket connect failed, errno=%d\n", errno);
+		s = socket(AF_INET, SOCK_STREAM, 0);
+		if(s < 0) {
+			ESP_LOGE(TAG, "Failed to allocate socket");
+			vTaskDelay(1000 / portTICK_PERIOD_MS);
+			continue;
+		}
+		ESP_LOGI(TAG, "Socket allocated");
+			if(connect(s, (struct sockaddr *)&tcpServerAddr, sizeof(tcpServerAddr)) != 0) {
+			ESP_LOGE(TAG, "Socket connect failed, errno=%d\n", errno);
+			close(s);
+			vTaskDelay(1000 / portTICK_PERIOD_MS);
+			continue;
+		}
+		ESP_LOGI(TAG, "Connected to the server");
+
+		// send its mac address before sending sniffed packets
+		for (int i = 0; i < 6; i++) {
+			if ((write(s, mac_address + i, 1)) < 0) {
+				ESP_LOGE(TAG, "Send of MAC address failed");
 				close(s);
 				vTaskDelay(1000 / portTICK_PERIOD_MS);
 				continue;
 			}
-			ESP_LOGI(TAG, "Connected to the server");
+		}
 
-			char c = sniff_count + '0';
-			if(write(s, &c, 1) != 1){
-				ESP_LOGE(TAG, "Send of *count* failed");
-				close(s);
-				vTaskDelay(1000 / portTICK_PERIOD_MS);
-				continue;
-			}
+		// send info about the number of packets that will be sent
+		char c = sniff_count + '0';
+		if(write(s, &c, 1) != 1){
+			ESP_LOGE(TAG, "Send of *count* failed");
+			close(s);
+			vTaskDelay(1000 / portTICK_PERIOD_MS);
+			continue;
+		}
 
-			ssize_t send_res;
-			if((send_res = send_probe_buffer(s)) < 0){
-				ESP_LOGE(TAG, "Send of buffer failed");
-				close(s);
-				vTaskDelay(1000 / portTICK_PERIOD_MS);
-				continue;
-			}
+		// send sniffed data
+		ssize_t send_res;
+		if((send_res = send_probe_buffer(s)) < 0){
+			ESP_LOGE(TAG, "Send of buffer failed");
+			close(s);
+			vTaskDelay(1000 / portTICK_PERIOD_MS);
+			continue;
+		}
 
-      ESP_LOGI(TAG, "Socket send success");
+		ESP_LOGI(TAG, "Socket send success");
 
 	    if(send_res != 0){
 				do {
@@ -510,7 +522,7 @@ void tcp_client_timer_version(){
 
 	    close(s);
 	    ESP_LOGI(TAG, "New request in 5 seconds");
-      break;
+		break;
     }
 
     ESP_LOGI(TAG, "tcp_client task closed");
