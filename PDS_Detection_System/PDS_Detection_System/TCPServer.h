@@ -69,6 +69,10 @@ public:
 		return address;
 	}
 
+	uint8_t get_id() {
+		return id;
+	}
+
 	int get_port() {
 		return port;
 	}
@@ -195,7 +199,7 @@ private:
 	* !!! Currently everytime the program is run the database is reinitialized. */
 	void setupDB();
 
-	void storePackets(int count);
+	void storePackets(int count, uint8_t espid);
 
 	ESP32 get_esp_instance(uint8_t* mac);
 };

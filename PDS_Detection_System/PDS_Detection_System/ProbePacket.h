@@ -28,5 +28,5 @@ public:
 
 	void print();
 	void print(long int last_update); // ADDED
-	void storeInDB(mysqlx::Table packetTable, long int last_update); // ADDED
+	void storeInDB(mysqlx::Table packetTable, long int last_update, uint8_t espid); // ADDED
 };
