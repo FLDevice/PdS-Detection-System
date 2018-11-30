@@ -44,6 +44,11 @@ uint8_t count = 0, sniff_count;
 static wifi_country_t wifi_country = {.cc="CN", .schan=1, .nchan=13, .policy=WIFI_COUNTRY_POLICY_AUTO};
 static EventGroupHandle_t wifi_event_group;
 
+/*** Variables for Peterson's algorithm ***/
+int in1 = false; // timer_example_evt_task
+int in2 = false; // wifi_sniffer_packet_handler
+int turn = 1; // 1: timer_example_evt_task | 2: wifi_sniffer_packet_handler
+
 /*** TIMER ***/
 xQueueHandle timer_queue;
 
@@ -163,9 +168,18 @@ static void timer_example_evt_task(void *arg)
         timer_event_t evt;
         xQueueReceive(timer_queue, &evt, portMAX_DELAY);
 
-        // Reset the count of the esp received packets.
+        /* Reset the count of the esp received packets. In order to guarantee concurrency,
+        *  Peterson's Algorithm is used.
+        */
+        in1 = true;
+        turn = 2;
+        while (in2 && turn == 2) // Start of the critical section
+              ;
+
         sniff_count = count;
         count = 0;
+
+        in1 = false; // End of the critical section
 
         /* Print information that the timer reported an event */
         if (evt.type == TEST_WITHOUT_RELOAD) {
@@ -563,7 +577,16 @@ void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type)
 		curr->next = temp;
 		curr = temp;
 
+    /* In order to guarantee concurrency, Peterson's Algorithm is used.
+    */
+    in2 = true;
+    turn = 1;
+    while(in1 && turn == 1) // Start of the critical section
+      ;
+
 		count++;
+
+    in2 = false; // End of the critical section
 	} else {
 		ESP_LOGE(MEM_ERR,"Couldn't allocate new element of the buffer list.\n");
 	}
