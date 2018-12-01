@@ -196,31 +196,6 @@ void TCPServer::TCPS_ask_participation() {
 					// return to the outer for loop
 					break;
 				}
-				// The ESP32 is asking if the server is ready:
-				else if (memcmp(recvbuf, READY_MSG_H, 5) == 0) {
-					std::cout << "Ready request arrived." << std::endl;
-
-					// Reply 'NO' to the ESP32
-					free(recvbuf);
-					char sendbuf[6], no = 0;
-					strncpy_s(sendbuf, 6, READY_MSG_H, 5);
-					sendbuf[5] = no;
-
-					printf("--- sending %s\n", sendbuf);
-					send_result = send(client_socket, sendbuf, 6, 0);
-					if (send_result == SOCKET_ERROR) {
-						// connection reset by peer
-						if (WSAGetLastError() == 10054) {
-							continue;
-						}
-						else {
-							free(recvbuf);
-							throw TCPServer_exception("send() failed with error ");
-						}
-					}
-					free(recvbuf);
-					continue;
-				}
 				// Incorrect formatting of the request; ignore it.
 				else {
 					free(recvbuf);
@@ -290,7 +265,7 @@ void TCPServer::TCPS_ready_channel(int esp_id) {
 
 			std::cout << "*** New request accepted from ESP with id " << esp_id << " on port " << s << ".\n";
 
-			// waitin to receive a READY message
+			// waiting to receive a READY message
 			char recvbuf[5];
 			int res;
 			for (int i = 0; i < 5; i = i + result)
@@ -331,6 +306,9 @@ void TCPServer::TCPS_ready_channel(int esp_id) {
 							throw TCPServer_exception("CHILD THREAD [READY] - send() failed with error ");
 						}
 					}
+
+					// Record the time when the ESP starts
+					esp_list[esp_id].update_time();
 					break;
 				}
 				// Incorrect formatting of the request; ignore it.
@@ -403,9 +381,9 @@ void TCPServer::TCPS_service() {
 			memcpy(mac, rbuff, 6);
 
 			// Get the instance of the device from the list created during setup with the mac received from the socket
-			ESP32* this_esp = get_esp_instance(mac);
+			int esp_id = get_esp_instance(mac);
 			// Update the time since last update
-			this_esp->update_time();
+			esp_list[esp_id].update_time();
 
 			// receiving packet counter from client
 			recv(client_socket, &c, 1, 0);
@@ -423,10 +401,10 @@ void TCPServer::TCPS_service() {
 			if (result > 0) {
 				std::cout << "Bytes received: " << result << ", buffer contains:" << std::endl;
 				std::cout << "Buffer size: " << recvbuflen << std::endl;
-				std::cout << "Current Time: " << std::time(NULL) << ", passed since last update: " << this_esp->get_update_interval() << std::endl; // ADDED
+				std::cout << "Current Time: " << std::time(NULL) << ", passed since last update: " << esp_list[esp_id].get_update_interval() << std::endl; // ADDED
 
 				// store and print them
-				storePackets(count, this_esp);
+				storePackets(count, esp_id);
 
 				// just send back a packet to the client as ack
 				send_result = send(client_socket, recvbuf, PACKET_SIZE, 0);
@@ -530,9 +508,9 @@ void TCPServer::setupDB()
 	std::cout << "Database correctly initialized." << std::endl;
 }
 
-void TCPServer::storePackets(int count, ESP32 *esp) {
+void TCPServer::storePackets(int count, int esp_id) {
 	try {
-		long int time_since_last_update = esp->get_previous_update_time();
+		long int time_since_last_update = esp_list[esp_id].get_previous_update_time();
 		// Connect to server using a connection URL
 		mysqlx::Session session("localhost", 33060, "pds_user", "password");
 
@@ -548,7 +526,7 @@ void TCPServer::storePackets(int count, ESP32 *esp) {
 				pp_vector.push(pp);
 				printf("%d \t", i);
 				pp.print(); // MODIFIED
-				pp.storeInDB(packetTable, time_since_last_update, esp->get_id());
+				pp.storeInDB(packetTable, time_since_last_update, esp_id);
 			}
 		}
 		catch (std::exception &err) {
@@ -566,11 +544,11 @@ void TCPServer::storePackets(int count, ESP32 *esp) {
 	}
 }
 
-ESP32* TCPServer::get_esp_instance(uint8_t* mac) {
+int TCPServer::get_esp_instance(uint8_t* mac) {
 	for (int i = 0; i < esp_number; i++) {
 		if (memcmp(mac, esp_list[i].get_mac_address_ptr(), 6) == 0) {
 			//printf("ESP LIST:\n id=%i\t, mac=%02x:%02x:%02x:%02x:%02x:%02x\n", );
-			return &esp_list[i];
+			return i;
 		}
 	}
 

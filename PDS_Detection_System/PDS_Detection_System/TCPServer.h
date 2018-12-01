@@ -208,8 +208,8 @@ private:
 	* !!! Currently everytime the program is run the database is reinitialized. */
 	void setupDB();
 
-	void storePackets(int count, ESP32 *esp);
+	void storePackets(int count, int esp_id);
 
-	ESP32* get_esp_instance(uint8_t* mac);
+	int get_esp_instance(uint8_t* mac);
 };
 

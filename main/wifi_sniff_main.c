@@ -132,7 +132,7 @@ void IRAM_ATTR timer_group0_isr(void *para)
  * auto_reload - should the timer auto reload on alarm?
  * timer_interval_sec - the interval of alarm to set
  */
-static void example_tg0_timer_init(int timer_idx,
+static void tg0_timer_init(int timer_idx,
     bool auto_reload, double timer_interval_sec)
 {
     /* Select and initialize basic parameters of the timer */
@@ -221,8 +221,6 @@ void app_main()
   esp_wifi_set_channel( CHANNEL_TO_SNIFF, WIFI_SECOND_CHAN_NONE);; //channel
 
   timer_queue = xQueueCreate(10, sizeof(timer_event_t));
-  //example_tg0_timer_init(TIMER_0, TEST_WITHOUT_RELOAD, TIMER_INTERVAL0_SEC);
-  example_tg0_timer_init(TIMER_1, TEST_WITH_RELOAD, TIMER_INTERVAL1_SEC);
   // See FreeRTOS API - Create a new task and add it to the list of tasks that are ready to run
   // Arguments:
   // Pointer to function - Name of the task - Size of task stack - Parameters for the task
@@ -293,12 +291,11 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 		//Initialization of the ESP --> connection with the server
 		esp_initialization();
     esp_is_ready();
-		//Check if the server is ready every 5 seconds
-		/*while (!ready) {
-			esp_is_ready();
-			sleep(5000);
-		}*/
-		// Set promiscuous mode and register the RX callback function.
+
+    // Start timer
+    tg0_timer_init(TIMER_1, TEST_WITH_RELOAD, TIMER_INTERVAL1_SEC);
+
+    // Set promiscuous mode and register the RX callback function.
 		// Each time a packet is received, the registered callback function will be called.
     xTaskCreate(timer_example_evt_task, "timer_evt_task", 2048, NULL, 5, NULL);
 		esp_wifi_set_promiscuous(true);
@@ -349,70 +346,70 @@ void esp_initialization() {
 	printf("\n");
 
 	//GETTING INITIALIZATION CONFIRM BY SERVER
-    struct sockaddr_in tcpServerAddr;
-    tcpServerAddr.sin_addr.s_addr = inet_addr(TCPServerIP);
-    tcpServerAddr.sin_family = AF_INET;
-    tcpServerAddr.sin_port = htons(TCPServerPort);
-    int s;
+  struct sockaddr_in tcpServerAddr;
+  tcpServerAddr.sin_addr.s_addr = inet_addr(TCPServerIP);
+  tcpServerAddr.sin_family = AF_INET;
+  tcpServerAddr.sin_port = htons(TCPServerPort);
+  int s;
 
-    for(int i = 0; i < 3; i++) {
-		s = socket(AF_INET, SOCK_STREAM, 0);
-		if(s < 0) {
-			ESP_LOGE(TAG, "Failed to allocate socket");
-			vTaskDelay(1000 / portTICK_PERIOD_MS);
-			continue;
-		}
-		ESP_LOGI(TAG, "Socket allocated");
-		 if (connect(s, (struct sockaddr *)&tcpServerAddr, sizeof(tcpServerAddr)) != 0) {
-			ESP_LOGE(TAG, "Socket connect failed, errno=%d\n", errno);
-			close(s);
-			vTaskDelay(1000 / portTICK_PERIOD_MS);
-			continue;
-		}
-		ESP_LOGI(TAG, "Connected to the server\n");
+  while(1) {
+  	s = socket(AF_INET, SOCK_STREAM, 0);
+  	if(s < 0) {
+  		ESP_LOGE(TAG, "Failed to allocate socket");
+  		vTaskDelay(1000 / portTICK_PERIOD_MS);
+  		continue;
+  	}
+  	ESP_LOGI(TAG, "Socket allocated");
+  	 if (connect(s, (struct sockaddr *)&tcpServerAddr, sizeof(tcpServerAddr)) != 0) {
+  		ESP_LOGE(TAG, "Socket connect failed, errno=%d\n", errno);
+  		close(s);
+  		vTaskDelay(1000 / portTICK_PERIOD_MS);
+  		continue;
+  	}
+  	ESP_LOGI(TAG, "Connected to the server\n");
 
-		//SENDING INIT MESSAGE TO THE SERVER
-		if (write(s, INIT_MSG_H, 4) < 0){
-			ESP_LOGE(TAG, "Sending of INIT failed\n");
-			close(s);
-			vTaskDelay(1000 / portTICK_PERIOD_MS);
-			continue;
-		}
-		else
-			ESP_LOGI(TAG, "INIT sent\n");
+  	//SENDING INIT MESSAGE TO THE SERVER
+  	if (write(s, INIT_MSG_H, 4) < 0){
+  		ESP_LOGE(TAG, "Sending of INIT failed\n");
+  		close(s);
+  		vTaskDelay(1000 / portTICK_PERIOD_MS);
+  		continue;
+  	}
+  	else
+  		ESP_LOGI(TAG, "INIT sent\n");
 
-		//SENDING MAD ADDRESS TO THE SERVER
-		if (write(s, mac_address, 6) < 0){
-			ESP_LOGE(TAG, "Sending of MAC address failed\n");
-			close(s);
-			vTaskDelay(1000 / portTICK_PERIOD_MS);
-			continue;
-		}
-		else
-			ESP_LOGI(TAG, "MAC address sent\n");
+  	//SENDING MAD ADDRESS TO THE SERVER
+  	if (write(s, mac_address, 6) < 0){
+  		ESP_LOGE(TAG, "Sending of MAC address failed\n");
+  		close(s);
+  		vTaskDelay(1000 / portTICK_PERIOD_MS);
+  		continue;
+  	}
+  	else
+  		ESP_LOGI(TAG, "MAC address sent\n");
 
-		//READING THE INIT CONFIRM FROM THE SERVER
-		char recv[8];
-		if ((read(s, recv, 8)) < 0) {
-			ESP_LOGE(TAG, "read failed\n");
-			printf("recv: %s\n", recv);
-			close(s);
-			vTaskDelay(1000 / portTICK_PERIOD_MS);
-			continue;
-		}
-		else if (strncmp(recv, "INIT", 4) == 0) {
-			ESP_LOGI(TAG, "INIT confirm received from server\n");
-			READY_PORT = (recv[4]-'0')*1000 + (recv[5]-'0')*100 + (recv[6]-'0')*10 + recv[7]-'0';
-			printf("Ready port: %i \n", READY_PORT);
-			close(s); //close
-		}
-		else{
-			ESP_LOGI(TAG, "received something else\n");
-			printf("recv: %s\n", recv);
-		}
-		close(s);
-		break;
-    }
+  	//READING THE INIT CONFIRM FROM THE SERVER
+  	char recv[8];
+  	if ((read(s, recv, 8)) < 0) {
+  		ESP_LOGE(TAG, "read failed\n");
+  		printf("recv: %s\n", recv);
+  		close(s);
+  		vTaskDelay(1000 / portTICK_PERIOD_MS);
+  		continue;
+  	}
+  	else if (strncmp(recv, "INIT", 4) == 0) {
+  		ESP_LOGI(TAG, "INIT confirm received from server\n");
+  		READY_PORT = (recv[4]-'0')*1000 + (recv[5]-'0')*100 + (recv[6]-'0')*10 + recv[7]-'0';
+  		printf("Ready port: %i \n", READY_PORT);
+  		close(s); //close
+  	}
+  	else{
+  		ESP_LOGI(TAG, "received something else\n");
+  		printf("recv: %s\n", recv);
+  	}
+  	close(s);
+  	break;
+  }
 }
 
 void esp_is_ready() {
