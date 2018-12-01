@@ -42,7 +42,7 @@ private:
 	int coordinate_y;
 	/* port used to create the ready channel */
 	int port;
-	long int time_since_last_update;
+	long int last_update, previous_update;
 
 public:
 	ESP32(int i, uint8_t* mac, int x, int y, int p) {
@@ -53,6 +53,8 @@ public:
 		coordinate_x = x;
 		coordinate_y = y;
 		port = p;
+
+		last_update = static_cast<long int> (time(NULL));
 		update_time();
 	}
 
@@ -109,7 +111,16 @@ public:
 	}
 
 	void update_time() {
-		time_since_last_update = static_cast<long int> (time(NULL));
+		previous_update = last_update;
+		last_update = static_cast<long int> (time(NULL));
+	}
+
+	long int get_previous_update_time() {
+		return previous_update;
+	}
+
+	long int get_update_interval() {
+		return last_update-previous_update;
 	}
 };
 
@@ -154,8 +165,6 @@ protected:
 	before launching an exception */
 	uint8_t retry;
 
-	long int time_since_last_update;
-
 
 public:
 
@@ -199,8 +208,8 @@ private:
 	* !!! Currently everytime the program is run the database is reinitialized. */
 	void setupDB();
 
-	void storePackets(int count, uint8_t espid);
+	void storePackets(int count, ESP32 *esp);
 
-	ESP32 get_esp_instance(uint8_t* mac);
+	ESP32* get_esp_instance(uint8_t* mac);
 };
 

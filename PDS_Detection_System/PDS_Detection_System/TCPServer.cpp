@@ -30,7 +30,6 @@ TCPServer::TCPServer() {
 	}
 	std::cout << std::endl;
 
-	time_since_last_update = static_cast<long int> (time(NULL));
 	retry = MAX_RETRY_TIMES;
 	threads_to_wait_for = esp_number;
 
@@ -402,8 +401,11 @@ void TCPServer::TCPS_service() {
 			if(result < 0) throw TCPServer_exception("mac_addr recv() failed with error ");
 
 			memcpy(mac, rbuff, 6);
-			ESP32 this_esp = get_esp_instance(mac);
-			uint8_t esp_id = this_esp.get_id();
+
+			// Get the instance of the device from the list created during setup with the mac received from the socket
+			ESP32* this_esp = get_esp_instance(mac);
+			// Update the time since last update
+			this_esp->update_time();
 
 			// receiving packet counter from client
 			recv(client_socket, &c, 1, 0);
@@ -419,25 +421,12 @@ void TCPServer::TCPS_service() {
 				result = recv(client_socket, recvbuf + i, recvbuflen - i, 0);
 
 			if (result > 0) {
-				long int curTime = static_cast<long int> (std::time(NULL)); // ADDED
-
 				std::cout << "Bytes received: " << result << ", buffer contains:" << std::endl;
 				std::cout << "Buffer size: " << recvbuflen << std::endl;
-				std::cout << "Current Time: " << std::time(NULL) << ", passed since last update: " << curTime - time_since_last_update << std::endl; // ADDED
+				std::cout << "Current Time: " << std::time(NULL) << ", passed since last update: " << this_esp->get_update_interval() << std::endl; // ADDED
 
 				// store and print them
-				storePackets(count, esp_id);
-
-				/* Old version
-
-				for (int i = 0; i < count; i++) {
-				ProbePacket pp;
-				memcpy(&pp, recvbuf + (i*PACKET_SIZE), PACKET_SIZE);
-				pp_vector.push(pp);
-				printf("%d \t", i);
-				pp.print(time_since_last_update); // MODIFIED
-				pp.storeInDB(time_since_last_update);
-				}*/
+				storePackets(count, this_esp);
 
 				// just send back a packet to the client as ack
 				send_result = send(client_socket, recvbuf, PACKET_SIZE, 0);
@@ -467,8 +456,6 @@ void TCPServer::TCPS_service() {
 					throw TCPServer_exception("send() failed with error ");
 				}
 			}
-
-			time_since_last_update = static_cast<long int> (time(NULL)); // ADDED
 
 			free(recvbuf);
 			break;
@@ -543,8 +530,9 @@ void TCPServer::setupDB()
 	std::cout << "Database correctly initialized." << std::endl;
 }
 
-void TCPServer::storePackets(int count, uint8_t espid) {
+void TCPServer::storePackets(int count, ESP32 *esp) {
 	try {
+		long int time_since_last_update = esp->get_previous_update_time();
 		// Connect to server using a connection URL
 		mysqlx::Session session("localhost", 33060, "pds_user", "password");
 
@@ -559,8 +547,8 @@ void TCPServer::storePackets(int count, uint8_t espid) {
 				memcpy(&pp, recvbuf + (i*PACKET_SIZE), PACKET_SIZE);
 				pp_vector.push(pp);
 				printf("%d \t", i);
-				pp.print(time_since_last_update); // MODIFIED
-				pp.storeInDB(packetTable, time_since_last_update, espid);
+				pp.print(); // MODIFIED
+				pp.storeInDB(packetTable, time_since_last_update, esp->get_id());
 			}
 		}
 		catch (std::exception &err) {
@@ -578,11 +566,11 @@ void TCPServer::storePackets(int count, uint8_t espid) {
 	}
 }
 
-ESP32 TCPServer::get_esp_instance(uint8_t* mac) {
+ESP32* TCPServer::get_esp_instance(uint8_t* mac) {
 	for (int i = 0; i < esp_number; i++) {
 		if (memcmp(mac, esp_list[i].get_mac_address_ptr(), 6) == 0) {
 			//printf("ESP LIST:\n id=%i\t, mac=%02x:%02x:%02x:%02x:%02x:%02x\n", );
-			return esp_list[i];
+			return &esp_list[i];
 		}
 	}
 
