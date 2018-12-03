@@ -18,6 +18,7 @@ struct buffer {
 	uint8_t ssid_length;
 	uint8_t ssid[32];
 	uint8_t crc[4];
+	unsigned long hash;
 };
 
 // List of all the sniffed requests

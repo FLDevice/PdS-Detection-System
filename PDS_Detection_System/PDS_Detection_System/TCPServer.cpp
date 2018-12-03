@@ -379,6 +379,7 @@ void TCPServer::TCPS_service() {
 			if(result < 0) throw TCPServer_exception("mac_addr recv() failed with error ");
 
 			memcpy(mac, rbuff, 6);
+			printf("Receivin packets from ESP with MAC address %02x:%02x:%02x:%02x:%02x:%02x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
 			// Get the instance of the device from the list created during setup with the mac received from the socket
 			int esp_id = get_esp_instance(mac);
@@ -490,7 +491,8 @@ void TCPServer::setupDB()
 	create += " rssi TINYINT, ";
 	create += " addr VARCHAR(32), ";
 	create += " ssid VARCHAR(32), ";
-	create += " crc VARCHAR(8)) ";
+	create += " crc VARCHAR(8), ";
+	create += " hash INT UNSIGNED )";
 
 	session.sql(create).execute();
 

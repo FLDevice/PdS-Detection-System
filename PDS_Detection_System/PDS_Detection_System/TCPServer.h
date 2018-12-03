@@ -22,7 +22,7 @@
 
 #pragma comment (lib, "Ws2_32.lib")
 
-#define PACKET_SIZE 52
+#define PACKET_SIZE 56
 #define MAX_ESP32_NUM 8
 #define MAX_RETRY_TIMES 3
 #define DEFAULT_PORT "3010"

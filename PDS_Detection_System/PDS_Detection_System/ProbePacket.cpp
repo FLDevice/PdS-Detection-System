@@ -6,13 +6,14 @@ ProbePacket::ProbePacket() {
 
 void ProbePacket::print() {
 	printf("%08d  PROBE  CHAN=%02d,  SEQ=%04x,  RSSI=%02d, "
-		" ADDR=%02x:%02x:%02x:%02x:%02x:%02x,  ",
+		" ADDR=%02x:%02x:%02x:%02x:%02x:%02x, HASH:%lu ",
 		timestamp,
 		channel,
 		seq_ctl/*[0], seq_ctl[1]*/,
 		rssi,
 		addr[0], addr[1], addr[2],
-		addr[3], addr[4], addr[5]
+		addr[3], addr[4], addr[5],
+		hash
 	);
 	printf("SSID=");
 	for (int i = 0; i<ssid_length; i++)
@@ -27,14 +28,15 @@ void ProbePacket::print(long int last_update) {
 	last_update += timestamp / 1000000;
 
 	printf("%08d  PROBE  CHAN=%02d,  SEQ=%04x,  RSSI=%02d, "
-		" ADDR=%02x:%02x:%02x:%02x:%02x:%02x, timestamp=%ld ",
+		" ADDR=%02x:%02x:%02x:%02x:%02x:%02x, timestamp=%ld, HASH:%lu ",
 		timestamp,
 		channel,
 		seq_ctl/*[0], seq_ctl[1]*/,
 		rssi,
 		addr[0], addr[1], addr[2],
-		addr[3], addr[4], addr[5],
-		last_update
+		addr[3], addr[4], addr[5],		
+		last_update,
+		hash
 	);
 	printf("SSID=");
 	for (int i = 0; i<ssid_length; i++)
@@ -81,6 +83,6 @@ void ProbePacket::storeInDB(mysqlx::Table packetTable, long int last_update, uin
 	std::string crc_to_store = buff;
 
 	// Insert SQL Table data
-	packetTable.insert("esp_id", "timestamp", "channel", "seq_ctl", "rssi", "addr", "ssid", "crc")
-		.values(espid, receive_time, channel, ctl_to_store, rssi, address, ssid_to_store, crc_to_store).execute();
+	packetTable.insert("esp_id", "timestamp", "channel", "seq_ctl", "rssi", "addr", "ssid", "crc", "hash")
+		.values(espid, receive_time, channel, ctl_to_store, rssi, address, ssid_to_store, crc_to_store, hash).execute();
 }
