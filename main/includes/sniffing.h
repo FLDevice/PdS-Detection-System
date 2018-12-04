@@ -4,7 +4,7 @@
 #define	WIFI_CHANNEL_MAX				        (13)
 #define	WIFI_CHANNEL_SWITCH_INTERVAL	  (500)
 #define PROBE_REQUEST_SUBTYPE			      0x40
-#define PACKET_SIZE                     52
+#define PACKET_SIZE                     56
 
 /***  Structs ***/
 
@@ -18,7 +18,7 @@ struct buffer {
 	uint8_t ssid_length;
 	uint8_t ssid[32];
 	uint8_t crc[4];
-	unsigned long hash;
+	uint32_t hash;
 };
 
 // List of all the sniffed requests

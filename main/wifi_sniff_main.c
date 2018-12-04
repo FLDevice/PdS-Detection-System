@@ -65,7 +65,7 @@ void check_list_size();
 void tcp_client_timer_version();
 
 /*** Other ***/
-unsigned long hash(char str[], int DIM);
+uint32_t hash(char str[], int DIM);
 
 /*
  * A simple helper function to print the raw timer counter value
@@ -578,20 +578,24 @@ void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type)
 		b.ssid[i] = (char)ipkt->payload[i+2];
 	for (int i=0, j=packet_length-4; i<4; i++, j++)
 		b.crc[i] = ipkt->payload[j];
-	
+
 	/*** Packet hash ***/
 	// Sequence + Address + SSID
-	int DIM = 22 + b.ssid_length;
+	int DIM = 54;//16 + b.ssid_length;
+  printf("-DIM: -%d-\n", DIM);
 	char hashCode[DIM];
-	sprintf(hashCode, "%04x%02x%02x%02x%02x%02x%02x%s", 
-			b.seq_ctl, 
-			b.addr[0], b.addr[1],b.addr[2], b.addr[3],b.addr[4],b.addr[5],
-			b.ssid);
+	sprintf(hashCode, "%04x%02x%02x%02x%02x%02x%02x",
+			b.seq_ctl,
+			b.addr[0], b.addr[1],b.addr[2], b.addr[3],b.addr[4],b.addr[5]);
+  for (int i=0; i<b.ssid_length; i++)
+	   hashCode[16+i] = (char) b.ssid[i];
+  printf("-Hashcode: -%s-",hashCode);
 	b.hash = hash(hashCode, DIM);
-	
+  printf("-HASH: -%u-\n", b.hash);
+
 	// Add buffer to buffer_list
 	curr->data = b;
-	
+
 	print_proberequest(&(curr->data));
 	struct buffer_list *temp = malloc(sizeof(struct buffer_list));
 	if( temp != NULL ) {
@@ -656,9 +660,9 @@ ssize_t send_probe_buffer(int sock){
 /*
  *	Prints the sniffed probe request
  */
-void print_proberequest(struct buffer* buf){	
+void print_proberequest(struct buffer* buf){
 	printf("%08d  PROBE  CHAN=%02d,  SEQ=%04x,  RSSI=%02d, "
-			" ADDR=%02x:%02x:%02x:%02x:%02x:%02x,  HASH:%lu  " ,
+			" ADDR=%02x:%02x:%02x:%02x:%02x:%02x,  HASH:%u  " ,
 			buf->timestamp,
 			buf->channel,
 			buf->seq_ctl/*[0], buf->seq_ctl[1]*/,
@@ -697,13 +701,13 @@ void check_list_size(){
 **************************************************/
 
 /* Creates hash djb2 algorithm */
-unsigned long hash(char str[], int DIM)
+uint32_t hash(char str[], int DIM)
 {
-	unsigned long hash = 5381;
+	uint32_t hash = 5381;
 
 	for(int i = 0; i < DIM; i++){
 		hash = ((hash << 5) + hash) + str[i]; /* hash * 33 + str[i] */
 	}
-	
+
 	return hash;
 }

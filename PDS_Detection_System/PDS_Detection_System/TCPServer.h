@@ -208,7 +208,7 @@ private:
 	* !!! Currently everytime the program is run the database is reinitialized. */
 	void setupDB();
 
-	void storePackets(int count, int esp_id);
+	void storePackets(int count, int esp_id, char* recvbuf);
 
 	int get_esp_instance(uint8_t* mac);
 };

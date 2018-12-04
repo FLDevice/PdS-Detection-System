@@ -202,8 +202,6 @@ void TCPServer::TCPS_ask_participation() {
 					continue;
 				}
 			}
-			else if (result == 0)
-				std::cout << "AAAAAAAAA";
 			else if (result < 0) {
 				free(recvbuf);
 				throw TCPServer_exception("recv() failed with error ");
@@ -392,7 +390,7 @@ void TCPServer::TCPS_service() {
 			printf("Receiving %u packets from ESP with MAC address %02x:%02x:%02x:%02x:%02x:%02x\n", count, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
 			// create space for the incoming packets
-			recvbuf = (char*)malloc(count*PACKET_SIZE);
+			char* recvbuf = (char*)malloc(count*PACKET_SIZE);
 			int recvbuflen = count * PACKET_SIZE;
 
 			// receive the effective packets */
@@ -405,7 +403,7 @@ void TCPServer::TCPS_service() {
 				std::cout << "Current Time: " << std::time(NULL) << ", passed since last update: " << esp_list[esp_id].get_update_interval() << std::endl; // ADDED
 
 				// store and print them
-				storePackets(count, esp_id);
+				storePackets(count, esp_id, recvbuf);
 
 				// just send back a packet to the client as ack
 				send_result = send(client_socket, recvbuf, PACKET_SIZE, 0);
@@ -510,7 +508,7 @@ void TCPServer::setupDB()
 	std::cout << "Database correctly initialized." << std::endl;
 }
 
-void TCPServer::storePackets(int count, int esp_id) {
+void TCPServer::storePackets(int count, int esp_id, char* recvbuf) {
 	try {
 		long int time_since_last_update = esp_list[esp_id].get_previous_update_time();
 		// Connect to server using a connection URL
