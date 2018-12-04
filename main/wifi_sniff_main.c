@@ -581,17 +581,19 @@ void wifi_sniffer_packet_handler(void* buff, wifi_promiscuous_pkt_type_t type)
 
 	/*** Packet hash ***/
 	// Sequence + Address + SSID
-	int DIM = 54;//16 + b.ssid_length;
-  printf("-DIM: -%d-\n", DIM);
+	int DIM = 16 + b.ssid_length; //54;
+	//printf("-DIM: -%d-\n", DIM);
 	char hashCode[DIM];
 	sprintf(hashCode, "%04x%02x%02x%02x%02x%02x%02x",
 			b.seq_ctl,
 			b.addr[0], b.addr[1],b.addr[2], b.addr[3],b.addr[4],b.addr[5]);
-  for (int i=0; i<b.ssid_length; i++)
+	for (int i=0; i<b.ssid_length; i++)
 	   hashCode[16+i] = (char) b.ssid[i];
-  printf("-Hashcode: -%s-",hashCode);
+	hashCode[16+b.ssid_length] = '\0';
+   
+	//printf("-Hashcode: -%s-",hashCode);
 	b.hash = hash(hashCode, DIM);
-  printf("-HASH: -%u-\n", b.hash);
+	//printf("-HASH: -%u-\n", b.hash);
 
 	// Add buffer to buffer_list
 	curr->data = b;
