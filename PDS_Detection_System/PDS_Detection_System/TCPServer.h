@@ -147,7 +147,7 @@ protected:
 
 	// sockets
 	SOCKET listen_socket;
-	SOCKET client_socket;
+	//SOCKET client_socket;
 	BlockingQueue<SOCKET> ready_sockets;
 
 	addrinfo *aresult = NULL;
@@ -193,14 +193,14 @@ private:
 	void TCPS_requests_loop();
 
 	/** calls shutdown(), may throw exception */
-	void TCPS_shutdown();
+	void TCPS_shutdown(SOCKET client_socket);
 
 	/** calls closesocket() on the listen socket, may throw exception */
 	void TCPS_close_listen_socket();
 
 	/** stores in the blocking queue client's sniffed packets,
 	may throw exceptions */
-	void TCPS_service();
+	void TCPS_service(SOCKET client_socket);
 
 	/**
 	* Create the table used to store the packets.

@@ -147,7 +147,7 @@ void TCPServer::TCPS_ask_participation() {
 
 		// waiting for a INIT packet coming from the i-th ESP32. If something else is sent, just ignore it.
 		while (1) {
-			client_socket = accept(listen_socket, NULL, NULL);
+			SOCKET client_socket = accept(listen_socket, NULL, NULL);
 			if (client_socket == INVALID_SOCKET) {
 				throw TCPServer_exception("accept() failed with error ");
 			}
@@ -261,7 +261,7 @@ void TCPServer::TCPS_ready_channel(int esp_id) {
 			if (c_sock == INVALID_SOCKET)
 				throw TCPServer_exception("CHILD THREAD [READY] - accept() failed with error ");
 
-			std::cout << "*** New request accepted from ESP with id " << esp_id << " on port " << s << ".\n";
+			//std::cout << "*** New request accepted from ESP with id " << esp_id << " on port " << s << ".\n";
 
 			// waiting to receive a READY message
 			char recvbuf[5];
@@ -335,7 +335,7 @@ void TCPServer::TCPS_requests_loop() {
 		/*--------------------------
 		***	Accepting Client request
 		---------------------------*/
-		client_socket = accept(listen_socket, NULL, NULL);
+		SOCKET client_socket = accept(listen_socket, NULL, NULL);
 		if (client_socket == INVALID_SOCKET) {
 			throw TCPServer_exception("accept() failed with error ");
 		}
@@ -346,7 +346,7 @@ void TCPServer::TCPS_requests_loop() {
 		***	Receiving Packets from Client
 		---------------------------*/
 		try {
-			std::thread(&TCPServer::TCPS_service, this).detach();
+			std::thread(&TCPServer::TCPS_service, this, client_socket).detach();
 		}
 		catch (std::exception& e) {
 			throw;
@@ -356,7 +356,7 @@ void TCPServer::TCPS_requests_loop() {
 
 }
 
-void TCPServer::TCPS_service() {
+void TCPServer::TCPS_service(SOCKET client_socket) {
 
 	uint8_t retry_child = MAX_RETRY_TIMES;
 	char c;
@@ -366,7 +366,7 @@ void TCPServer::TCPS_service() {
 
 	while (retry_child > 0) {
 		try {
-			result = 0;
+			int result = 0;
 
 			// receiving mac address from client
 			uint8_t mac[6];
@@ -457,7 +457,7 @@ void TCPServer::TCPS_close_listen_socket() {
 	}
 }
 
-void TCPServer::TCPS_shutdown() {
+void TCPServer::TCPS_shutdown(SOCKET client_socket) {
 	result = shutdown(client_socket, SD_SEND);
 	if (result == SOCKET_ERROR) {
 		throw TCPServer_exception("shutdown() failed with error ");
