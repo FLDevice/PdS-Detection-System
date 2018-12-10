@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>									// ADDED
 #include <iostream>
 #include <cstdint>
 #include <winsock2.h>
@@ -20,12 +21,17 @@
 #include "BlockingQueue.h"
 #include "BlockingQueue.cpp"
 
+#include <dlib-19.16\dlib\optimization.h>
+#include <dlib-19.16\dlib\global_optimization.h>
+
 #pragma comment (lib, "Ws2_32.lib")
 
 #define PACKET_SIZE 56
 #define MAX_ESP32_NUM 8
 #define MAX_RETRY_TIMES 3
 #define DEFAULT_PORT "3010"
+
+typedef dlib::matrix<double, 0, 1> column_vector;
 
 class TCPServer_exception : public virtual std::runtime_error {
 
@@ -92,8 +98,8 @@ public:
 				mysqlx::Table espTable = myDb.getTable("ESP");
 
 				// Insert SQL Table data
-				espTable.insert("mac", "x", "y")
-					.values(get_mac_address_string(), coordinate_x, coordinate_y).execute();
+				espTable.insert("mac", "esp_id", "x", "y")
+					.values(get_mac_address_string(), get_id(),coordinate_x, coordinate_y).execute();			// ADDED esp_id
 			}
 			catch (std::exception &err) {
 				std::cout << "The following error occurred: " << err.what() << std::endl;
@@ -132,6 +138,9 @@ protected:
 	const int FIRST_READY_PORT = 3011;
 	const char INIT_MSG_H[5] = "INIT";
 	const char READY_MSG_H[6] = "READY";
+
+	int first_id = 0;					// ADDED
+	int last_id  = 0;					// ADDED
 
 	int esp_number;
 	std::vector<ESP32> esp_list;
@@ -211,5 +220,12 @@ private:
 	void storePackets(int count, int esp_id, char* recvbuf);
 
 	int get_esp_instance(uint8_t* mac);
+
+	/* TRIANGULATION   METHODS */
+	double getDistanceFromRSSI(double rssi);
+
+	void getCoordinates(int * pos_x, int * pos_y);
+
+	void triangulation(int first_id, int last_id);
 };
 

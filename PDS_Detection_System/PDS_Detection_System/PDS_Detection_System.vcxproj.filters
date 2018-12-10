@@ -56,6 +56,9 @@
     <ClCompile Include="utilities.cpp">
       <Filter>File di origine</Filter>
     </ClCompile>
+    <ClCompile Include="dlib\all\source.cpp">
+      <Filter>File di origine</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="PDS_Detection_System.rc">

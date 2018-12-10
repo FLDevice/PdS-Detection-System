@@ -83,6 +83,6 @@ void ProbePacket::storeInDB(mysqlx::Table packetTable, long int last_update, uin
 	std::string crc_to_store = buff;
 
 	// Insert SQL Table data
-	packetTable.insert("esp_id", "timestamp", "channel", "seq_ctl", "rssi", "addr", "ssid", "crc", "hash")
-		.values(espid, receive_time, channel, ctl_to_store, rssi, address, ssid_to_store, crc_to_store, hash).execute();
+	packetTable.insert("esp_id", "timestamp", "channel", "seq_ctl", "rssi", "addr", "ssid", "crc", "hash", "triangulated") //ADDED "triangulated" = 0
+		.values(espid, receive_time, channel, ctl_to_store, rssi, address, ssid_to_store, crc_to_store, hash, 0).execute();
 }

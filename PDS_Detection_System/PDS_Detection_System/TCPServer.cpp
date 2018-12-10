@@ -1,13 +1,15 @@
 #include "stdafx.h"
 #include "TCPServer.h"
 
+std::vector<int> x;
+std::vector<int> y;
+std::vector<double> d;
 
 TCPServer::TCPServer() {
 	std::cout << " === TCPServer version 0.1 ===" << std::endl;
 
 	setupDB();
-
-	//User inputs ESP32 amount
+	//User inputs ESP32 amount   
 	while (1) {
 		std::cout << "Insert how many ESP32 will join the system: ";
 
@@ -76,7 +78,7 @@ TCPServer::TCPServer() {
 			retry--;
 			if (!retry) throw;
 		}
-	}
+	} 
 }
 
 void TCPServer::TCPS_initialize() {
@@ -215,6 +217,7 @@ void TCPServer::TCPS_ask_participation() {
 			threads[i] = std::thread(&TCPServer::TCPS_ready_channel, this, i);
 		}
 		catch (std::exception& e) {
+			std::cout << e.what() << std::endl;
 			throw;
 		}
 
@@ -349,6 +352,7 @@ void TCPServer::TCPS_requests_loop() {
 			std::thread(&TCPServer::TCPS_service, this, client_socket).detach();
 		}
 		catch (std::exception& e) {
+			std::cout << e.what() << std::endl;
 			throw;
 		}
 
@@ -404,6 +408,44 @@ void TCPServer::TCPS_service(SOCKET client_socket) {
 
 				// store and print them
 				storePackets(count, esp_id, recvbuf);
+
+				/***********************************   CALLING   TRIANGULATION  METHOD   ***********************************/
+				try {
+					mysqlx::Session session("localhost", 33060, "pds_user", "password");
+					try {
+						mysqlx::Schema myDb = session.getSchema("pds_db");
+
+						mysqlx::Table packetTable = myDb.getTable("Packet");
+
+						mysqlx::RowResult myResult;
+						mysqlx::Row row;
+
+						//The first ID on which we start the triangulation will be the first of the new capture (last + 1)
+						first_id = last_id + 1;
+
+						//Get the last(the maximum) packet-ID of the sequence
+						myResult = packetTable.select("MAX(id)").execute();
+						row = myResult.fetchOne();
+						last_id = (int)row[0];
+
+						std::cout << std::endl << "Current capture in database: First ID = " << first_id << ", Last ID = " << last_id << std::endl << std::endl;
+					}
+					catch (std::exception &err) {
+						std::cout << "The following error occurred: " << err.what() << std::endl;
+						exit(1);
+					}
+				}
+				catch (std::exception &err) {
+					std::cout << "The database session could not be opened: " << err.what() << std::endl;
+					exit(1);
+				}
+
+				//call the triangolation method on the packets just stored (new packets)
+				triangulation(first_id, last_id);
+				//triangulation(1, 1); //per triangolare solo i pacchetti con il primo hash ricevuto 
+
+				/* END OF TRIANGULATION CALLING*/
+
 
 				// just send back a packet to the client as ack
 				send_result = send(client_socket, recvbuf, PACKET_SIZE, 0);
@@ -490,8 +532,9 @@ void TCPServer::setupDB()
 	create += " addr VARCHAR(32), ";
 	create += " ssid VARCHAR(32), ";
 	create += " crc VARCHAR(8), ";
-	create += " hash INT UNSIGNED )";
-
+	create += " hash INT UNSIGNED, ";
+    create += " triangulated INT )";							// ADDED
+ 
 	session.sql(create).execute();
 
 	quoted_name = std::string("`pds_db`.`ESP`");
@@ -500,8 +543,23 @@ void TCPServer::setupDB()
 	create = "CREATE TABLE ";
 	create += quoted_name;
 	create += " (mac VARCHAR(32) NOT NULL PRIMARY KEY,";
+	create += " esp_id INT NOT NULL,";							// ADDED
 	create += " x INT NOT NULL,";
 	create += " y INT NOT NULL)";
+
+	session.sql(create).execute();
+
+	//														***DEVICES TABLE ADDED***
+	quoted_name = std::string("`pds_db`.`Devices`");
+
+	session.sql(std::string("DROP TABLE IF EXISTS") + quoted_name).execute();
+	create = "CREATE TABLE ";
+	create += quoted_name;
+	create += " (dev_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, ";
+	create += " mac VARCHAR(32) NOT NULL,";
+	create += " x INT NOT NULL,";
+	create += " y INT NOT NULL,";
+	create += " timestamp TIMESTAMP)";
 
 	session.sql(create).execute();
 
@@ -553,4 +611,151 @@ int TCPServer::get_esp_instance(uint8_t* mac) {
 	}
 
 	throw std::exception("No esp with such a MAC has been found.");
+}
+
+/***************************************   T   R   I   A   N   G   U   L   A   T   I   O   N   ***************************************/
+
+//Method that estimates the distance (in meters) starting from the RSSI
+double TCPServer::getDistanceFromRSSI(double rssi) {
+	double rssiAtOneMeter = -59;
+	double d = pow(10, (rssiAtOneMeter - rssi) / 20);
+	return d;
+}
+
+//Method that calculates the distance among two points (x1,y1) , (x2,y2)
+double dist(double x1, double y1, double x2, double y2)  {
+	return sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2));
+}
+
+//Method that defines the Mean Square Error (MSE) function
+double meanSquareError(const column_vector& m)  {
+	const double pos_x = m(0);
+	const double pos_y = m(1);
+
+	double mse = 0;
+	int N = d.size();
+
+	for (int i = 0; i < N; i++)
+		mse = mse + pow(d[i] - dist(pos_x, pos_y, x[i], y[i]), 2);
+
+	mse = mse / N;
+
+	return mse;
+}
+
+//Method that finds the min (x,y) of the function meanSquareError ==> the (x,y) point will be the position of the device
+void TCPServer::getCoordinates(int * pos_x, int * pos_y) {
+	try {
+		column_vector starting_point = { 0, 0 };
+
+		dlib::find_min_using_approximate_derivatives(dlib::bfgs_search_strategy(),
+			dlib::objective_delta_stop_strategy(1e-7),	
+			meanSquareError,
+			starting_point, -1);
+
+		*pos_x = starting_point(0);
+		*pos_y = starting_point(1);
+
+		std::cout << "Coordinates: X=" << *pos_x << ", Y=" << *pos_y << std::endl;
+	}
+	catch (std::exception& e) {
+		std::cout << e.what() << std::endl;
+	}
+}
+
+void TCPServer::triangulation(int first_id, int last_id) {
+	
+	int pos_x = -1;
+	int pos_y = -1;
+
+	try {
+		mysqlx::Session session("localhost", 33060, "pds_user", "password");
+
+		try {
+			mysqlx::Schema myDb = session.getSchema("pds_db");
+
+			mysqlx::Table packetTable  = myDb.getTable("Packet");
+			mysqlx::Table espTable     = myDb.getTable("ESP");
+			mysqlx::Table devicesTable = myDb.getTable("Devices");
+
+			mysqlx::RowResult myResult;
+			mysqlx::Row row;		
+			
+			//Pass through all the packets
+			for (int current_id = first_id; current_id <= last_id; current_id++) {
+				
+				x.clear();
+				y.clear();
+				d.clear();
+
+				//Check if the current packet has already been triangulated ( 1 => YES  ;  0 ==> NO )
+				myResult = packetTable.select("triangulated").where("id=:current_id").bind("current_id", current_id).execute();
+				row = myResult.fetchOne();
+				uint32_t t = (uint32_t)row[0];
+
+				//std::cout << "Triangulated = " << t << std::endl;
+
+				if (!t) { //the current packet has not been triangulated yet
+
+					//Get Hash and MAC address of the current packet
+					myResult = packetTable.select("hash", "addr").where("id=:current_id").bind("current_id", current_id).execute();
+					row = myResult.fetchOne();
+					uint32_t current_hash = (uint32_t)row[0];
+					std::string current_address = row[1];
+
+					std::cout << " Hash " << current_hash << " with MAC " << current_address << " not checked yet";
+
+					//Count how many ESPs have received this packet (this hash)
+					myResult = packetTable.select("count(*)").where("hash=:current_hash").bind("current_hash", current_hash).execute();
+					row = myResult.fetchOne();
+					uint32_t counter = (uint32_t)row[0];
+
+					std::cout << " (received by " << counter << " ESPs)"<< std::endl;
+
+					if (counter >= 3) { //the packet has been received by at least 3 ESPs (Note: change this value in debug/testing)
+						
+						//Get the ESP-ID and the RSSI from *ALL* the ESPs which have received the packet
+						//N.B.: this query gives multiple rows --> one row for each ESP which has received the packet
+						myResult = packetTable.select("esp_id", "rssi").where("hash=:current_hash").bind("current_hash", current_hash).execute();
+						
+						for (mysqlx::Row rows : myResult.fetchAll()) { 
+							uint32_t current_esp_id = (uint32_t)rows[0];
+							int current_rssi = (int)rows[1];
+
+							std::cout << "  Current ESP values: ESP-ID=" << current_esp_id << ", RSSI=" << current_rssi;
+
+							//Get the coordinates of the ESP who has received the current packet
+							myResult = espTable.select("x", "y").where("esp_id=:current_esp_id").bind("current_esp_id", current_esp_id).execute();
+							row = myResult.fetchOne();
+							int current_esp_x = (int)row[0];
+							int current_esp_y = (int)row[1];
+
+							//Estimate the distance from the RSSI
+							double current_distance = getDistanceFromRSSI(current_rssi);
+
+							std::cout << ", X=" << current_esp_x << ", Y=" << current_esp_y << ", Distance=" << current_distance << std::endl << std::endl;;
+
+							//Add the values in each vector
+							x.push_back(current_esp_x);
+							y.push_back(current_esp_y);
+							d.push_back(current_distance);
+						}	
+						//Triangulate the device with the current MAC address getting its coordinates pos_x and pos_y
+						getCoordinates(&pos_x, &pos_y);
+						devicesTable.insert("mac", "x", "y").values(current_address, pos_x, pos_y).execute();
+					}
+					//Set as "already triangulated" (triangulated = 1) all the packets with the current hash
+					packetTable.update().set("triangulated", 1).where("hash=:current_hash").bind("current_hash", current_hash).execute();
+				}
+			}
+		}
+		catch (std::exception &err) {
+			std::cout << "The following error occurred: " << err.what() << std::endl;
+			exit(1);
+		}
+	}
+	catch (std::exception &err) {
+		std::cout << "The database session could not be opened: " << err.what() << std::endl;
+		exit(1);
+	}
 }
