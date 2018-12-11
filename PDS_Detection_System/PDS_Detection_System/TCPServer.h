@@ -99,7 +99,7 @@ public:
 
 				// Insert SQL Table data
 				espTable.insert("mac", "esp_id", "x", "y")
-					.values(get_mac_address_string(), get_id(),coordinate_x, coordinate_y).execute();			// ADDED esp_id
+					.values(get_mac_address_string(), get_id(), coordinate_x, coordinate_y).execute();			// ADDED esp_id
 			}
 			catch (std::exception &err) {
 				std::cout << "The following error occurred: " << err.what() << std::endl;
@@ -126,7 +126,7 @@ public:
 	}
 
 	long int get_update_interval() {
-		return last_update-previous_update;
+		return last_update - previous_update;
 	}
 };
 
@@ -140,7 +140,7 @@ protected:
 	const char READY_MSG_H[6] = "READY";
 
 	int first_id = 0;					// ADDED
-	int last_id  = 0;					// ADDED
+	int last_id = 0;					// ADDED
 
 	int esp_number;
 	std::vector<ESP32> esp_list;
@@ -148,6 +148,10 @@ protected:
 	int threads_to_wait_for;
 	std::mutex mtx;
 	std::condition_variable cvar;
+
+	int esp_to_wait;
+	std::mutex triang_mtx;
+	std::condition_variable triang_cvar;
 
 	// thread-safe queue to store esp32 sniffed packets
 	BlockingQueue<ProbePacket> pp_vector;
@@ -227,5 +231,7 @@ private:
 	void getCoordinates(int * pos_x, int * pos_y);
 
 	void triangulation(int first_id, int last_id);
+
+	void TCPS_triangulate();
 };
 
