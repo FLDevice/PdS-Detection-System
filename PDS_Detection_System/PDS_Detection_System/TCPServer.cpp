@@ -710,7 +710,7 @@ void TCPServer::triangulation(int first_id, int last_id) {
 
 					std::cout << " (received by " << counter << " ESPs)";
 
-					if (counter >= 3) { //the packet has been received by at least 3 ESPs (Note: change this value in debug/testing)
+					if (counter >= ESP_THRESHOLD) { //the packet has been received by at least 3 ESPs (Note: change this value in debug/testing)
 
 						//Get the ESP-ID and the RSSI from *ALL* the ESPs which have received the packet
 						//N.B.: this query gives multiple rows --> one row for each ESP which has received the packet

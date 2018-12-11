@@ -30,6 +30,7 @@
 #define MAX_ESP32_NUM 8
 #define MAX_RETRY_TIMES 3
 #define DEFAULT_PORT "3010"
+#define ESP_THRESHOLD 3
 
 typedef dlib::matrix<double, 0, 1> column_vector;
 
