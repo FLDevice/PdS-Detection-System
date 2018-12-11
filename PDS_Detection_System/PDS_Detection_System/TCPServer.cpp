@@ -637,7 +637,7 @@ void TCPServer::getCoordinates(int * pos_x, int * pos_y) {
 		*pos_x = starting_point(0);
 		*pos_y = starting_point(1);
 
-		std::cout << "   Coordinates: X=" << *pos_x << ", Y=" << *pos_y << std::endl << std::endl;
+		//std::cout << "   Coordinates: X=" << *pos_x << ", Y=" << *pos_y << std::endl << std::endl;
 	}
 	catch (std::exception& e) {
 		std::cout << e.what() << std::endl;
@@ -701,27 +701,28 @@ void TCPServer::triangulation(int first_id, int last_id) {
 					uint32_t current_hash = (uint32_t)row[0];
 					std::string current_address = row[1];
 
-					std::cout << " Hash " << current_hash << " with MAC " << current_address << " not checked yet";
+					std::cout << " Hash " << current_hash << " with MAC " << current_address;
 
 					//Count how many ESPs have received this packet (this hash)
 					myResult = packetTable.select("count(DISTINCT(esp_id))").where("hash=:current_hash").bind("current_hash", current_hash).execute();
 					row = myResult.fetchOne();
 					uint32_t counter = (uint32_t)row[0];
 
-					std::cout << " (received by " << counter << " ESPs)" << std::endl;
+					std::cout << " (received by " << counter << " ESPs)";
 
 					if (counter >= 3) { //the packet has been received by at least 3 ESPs (Note: change this value in debug/testing)
 
-										//Get the ESP-ID and the RSSI from *ALL* the ESPs which have received the packet
-										//N.B.: this query gives multiple rows --> one row for each ESP which has received the packet
-						
+						//Get the ESP-ID and the RSSI from *ALL* the ESPs which have received the packet
+						//N.B.: this query gives multiple rows --> one row for each ESP which has received the packet
 						mysqlx::RowResult multipleQueryResult = packetTable.select("esp_id", "rssi").where("hash=:current_hash").bind("current_hash", current_hash).execute();
 
-						//while (mysqlx::Row rows = myResult.fetchOne()) {
+						std::cout << std::endl << "  Current ESP values:" << std::endl;
+
 						for (mysqlx::Row rows : multipleQueryResult.fetchAll()) {
 							uint32_t current_esp_id = (uint32_t)rows[0];
 							int current_rssi = (int)rows[1];
-							std::cout << "  Current ESP values: ESP-ID=" << current_esp_id << ", RSSI=" << current_rssi;
+							
+							std::cout << "   ESP-ID=" << current_esp_id << ", RSSI=" << current_rssi;
 
 							//Get the coordinates of the ESP who has received the current packet
 							myResult = espTable.select("x", "y").where("esp_id=:current_esp_id").bind("current_esp_id", current_esp_id).execute();
@@ -732,7 +733,7 @@ void TCPServer::triangulation(int first_id, int last_id) {
 							//Estimate the distance from the RSSI
 							double current_distance = getDistanceFromRSSI(current_rssi);
 
-							std::cout << ", X=" << current_esp_x << ", Y=" << current_esp_y << ", Distance=" << current_distance << std::endl;;
+							std::cout << ", X=" << current_esp_x << ", Y=" << current_esp_y << ", Distance=" << current_distance << std::endl;
 
 							//Add the values in each vector
 							x.push_back(current_esp_x);
@@ -743,9 +744,15 @@ void TCPServer::triangulation(int first_id, int last_id) {
 						getCoordinates(&pos_x, &pos_y);
 
 						//Check if the device triangulated is inside the perimeter, if so add it in the database
-						if ((pos_x > min_x) && (pos_x < max_x) && (pos_y > min_y) && (pos_y < max_y)) 
+						if ((pos_x > min_x) && (pos_x < max_x) && (pos_y > min_y) && (pos_y < max_y)) {
 							devicesTable.insert("mac", "x", "y").values(current_address, pos_x, pos_y).execute();
+							std::cout << "    Coordinates of " << current_address << " : X=" << pos_x << ", Y=" << pos_y << std::endl << std::endl;
+						}
+						else
+							std::cout << "    Coordinates of " << current_address << " : X=" << pos_x << ", Y=" << pos_y << " ==> out of perimiter" << std::endl << std::endl;
 					}
+					else
+						std::cout << " ==> this packet won't be triangulated" << std::endl << std::endl;
 					//Set as "already triangulated" (triangulated = 1) all the packets with the current hash
 					packetTable.update().set("triangulated", 1).where("hash=:current_hash").bind("current_hash", current_hash).execute();
 				}
@@ -762,7 +769,7 @@ void TCPServer::triangulation(int first_id, int last_id) {
 	}
 }
 
-// CALLING   TRIANGULATION  METHOD
+//Method that calls the triangulation method when needed in a thread-safe modestd::cout << "    Coordinates of " << current_address << " : X=" << pos_x << ", Y=" << pos_y << std::endl << std::endl;
 void TCPServer::TCPS_triangulate() {
 	while (1) {
 		{
@@ -790,7 +797,7 @@ void TCPServer::TCPS_triangulate() {
 				row = myResult.fetchOne();
 				last_id = (int)row[0];
 
-				std::cout << std::endl << "Current capture in database: First ID = " << first_id << ", Last ID = " << last_id << std::endl << std::endl;
+				std::cout << std::endl << "Current capture (in database): from ID=" << first_id << " to ID=" << last_id << std::endl << std::endl;
 			}
 			catch (std::exception &err) {
 				std::cout << "The following error occurred: " << err.what() << std::endl;
