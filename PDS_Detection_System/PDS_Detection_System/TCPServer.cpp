@@ -742,7 +742,7 @@ void TCPServer::triangulation(int first_id, int last_id) {
 						//Triangulate the device with the current MAC address getting its coordinates pos_x and pos_y
 						getCoordinates(&pos_x, &pos_y);
 
-						//Check if the device triangulated is inside the perimeter, is so add it in the database
+						//Check if the device triangulated is inside the perimeter, if so add it in the database
 						if ((pos_x > min_x) && (pos_x < max_x) && (pos_y > min_y) && (pos_y < max_y)) 
 							devicesTable.insert("mac", "x", "y").values(current_address, pos_x, pos_y).execute();
 					}
