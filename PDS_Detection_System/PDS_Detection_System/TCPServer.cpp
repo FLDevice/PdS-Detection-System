@@ -34,7 +34,7 @@ TCPServer::TCPServer() {
 
 	retry = MAX_RETRY_TIMES;
 	threads_to_wait_for = esp_number;
-	esp_to_wait = esp_number;
+	esp_to_wait = esp_number; 
 
 	while (retry > 0) {
 		try {
