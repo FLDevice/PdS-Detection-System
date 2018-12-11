@@ -625,6 +625,7 @@ double meanSquareError(const column_vector& m) {
 
 //Method that finds the min (x,y) of the function meanSquareError ==> the (x,y) point will be the position of the device
 void TCPServer::getCoordinates(int * pos_x, int * pos_y) {
+
 	try {
 		column_vector starting_point = { 0, 0 };
 
@@ -661,6 +662,23 @@ void TCPServer::triangulation(int first_id, int last_id) {
 			mysqlx::RowResult myResult;
 			mysqlx::Row row;
 
+			//Get the perimeter min(x), max(x), min(y), max(y)
+			myResult = espTable.select("MIN(x)").execute();
+			row = myResult.fetchOne();
+			int min_x = row[0];
+
+			myResult = espTable.select("MAX(x)").execute();
+			row = myResult.fetchOne();
+			int max_x = row[0];
+
+			myResult = espTable.select("MIN(y)").execute();
+			row = myResult.fetchOne();
+			int min_y = row[0];
+
+			myResult = espTable.select("MAX(y)").execute();
+			row = myResult.fetchOne();
+			int max_y = row[0];
+
 			//Pass through all the packets
 			for (int current_id = first_id; current_id <= last_id; current_id++) {
 
@@ -677,7 +695,7 @@ void TCPServer::triangulation(int first_id, int last_id) {
 
 				if (!t) { //the current packet has not been triangulated yet
 
-						  //Get Hash and MAC address of the current packet
+				    //Get Hash and MAC address of the current packet
 					myResult = packetTable.select("hash", "addr").where("id=:current_id").bind("current_id", current_id).execute();
 					row = myResult.fetchOne();
 					uint32_t current_hash = (uint32_t)row[0];
@@ -723,7 +741,10 @@ void TCPServer::triangulation(int first_id, int last_id) {
 						}
 						//Triangulate the device with the current MAC address getting its coordinates pos_x and pos_y
 						getCoordinates(&pos_x, &pos_y);
-						devicesTable.insert("mac", "x", "y").values(current_address, pos_x, pos_y).execute();
+
+						//Check if the device triangulated is inside the perimeter, is so add it in the database
+						if ((pos_x > min_x) && (pos_x < max_x) && (pos_y > min_y) && (pos_y < max_y)) 
+							devicesTable.insert("mac", "x", "y").values(current_address, pos_x, pos_y).execute();
 					}
 					//Set as "already triangulated" (triangulated = 1) all the packets with the current hash
 					packetTable.update().set("triangulated", 1).where("hash=:current_hash").bind("current_hash", current_hash).execute();
