@@ -1,10 +1,10 @@
 #include "stdafx.h"
 #include "TCPServer.h"
-
+/*
 std::vector<int> x;
 std::vector<int> y;
 std::vector<double> d;
-
+*/
 TCPServer::TCPServer() {
 	std::cout << " === TCPServer version 0.1 ===" << std::endl;
 
@@ -56,7 +56,7 @@ TCPServer::TCPServer() {
 			TCPS_listen();
 
 			try {
-				std::thread(&TCPServer::TCPS_triangulate, this).detach();
+				std::thread(&TCPServer::TCPS_process_packets, this).detach();
 			}
 			catch (std::exception& e) {
 				std::cout << e.what() << std::endl;
@@ -513,7 +513,7 @@ void TCPServer::setupDB()
 	create += " ssid VARCHAR(32), ";
 	create += " crc VARCHAR(8), ";
 	create += " hash INT UNSIGNED, ";
-	create += " triangulated INT )";							// ADDED
+	create += " to_be_deleted INT )";							// ADDED
 
 	session.sql(create).execute();
 
@@ -594,7 +594,7 @@ int TCPServer::get_esp_instance(uint8_t* mac) {
 }
 
 /***************************************   T   R   I   A   N   G   U   L   A   T   I   O   N   ***************************************/
-
+/*
 //Method that estimates the distance (in meters) starting from the RSSI
 double TCPServer::getDistanceFromRSSI(double rssi) {
 	double rssiAtOneMeter = -59;
@@ -813,4 +813,19 @@ void TCPServer::TCPS_triangulate() {
 		triangulation(first_id, last_id);
 		//triangulation(1, 5); //per triangolare solo i pacchetti con il primo hash ricevuto 
 	}	
+}*/
+
+//Method that calls the triangulation method when needed in a thread-safe modestd::cout << "    Coordinates of " << current_address << " : X=" << pos_x << ", Y=" << pos_y << std::endl << std::endl;
+void TCPServer::TCPS_process_packets() {
+	PacketProcessor pckt_rfn(esp_number);
+	while (1) {
+		{
+			std::unique_lock<std::mutex> ul(triang_mtx);
+			triang_cvar.wait(ul, [this]() { return esp_to_wait == 0; });
+
+			esp_to_wait = esp_number;
+		}
+
+		pckt_rfn.process();
+	}
 }

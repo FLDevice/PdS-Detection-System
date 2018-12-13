@@ -24,6 +24,8 @@
 #include <dlib-19.16\dlib\optimization.h>
 #include <dlib-19.16\dlib\global_optimization.h>
 
+#include "PacketProcessor.h"
+
 #pragma comment (lib, "Ws2_32.lib")
 
 #define PACKET_SIZE 56
@@ -234,5 +236,7 @@ private:
 	void triangulation(int first_id, int last_id);
 
 	void TCPS_triangulate();
+
+	void TCPS_process_packets();
 };
 
