@@ -77,7 +77,7 @@ TCPServer::TCPServer() {
 			if (!retry) throw;
 		}
 		catch (std::runtime_error& e) {
-			std::cout << e.what() << result << std::endl;
+			std::cout << e.what() << std::endl;
 			WSACleanup();
 			retry--;
 			if (!retry) throw;
@@ -99,7 +99,7 @@ void TCPServer::TCPS_initialize() {
 	hints.ai_protocol = IPPROTO_TCP;
 	hints.ai_flags = AI_PASSIVE;
 
-	result = getaddrinfo(NULL, DEFAULT_PORT, &hints, &aresult);
+	int result = getaddrinfo(NULL, DEFAULT_PORT, &hints, &aresult);
 	if (result != 0) {
 		throw std::runtime_error("getaddrinfo() failed with error ");
 	}
@@ -114,14 +114,14 @@ void TCPServer::TCPS_socket() {
 }
 
 void TCPServer::TCPS_bind() {
-	result = bind(listen_socket, aresult->ai_addr, (int)aresult->ai_addrlen);
+	int result = bind(listen_socket, aresult->ai_addr, (int)aresult->ai_addrlen);
 	if (result == SOCKET_ERROR) {
 		throw TCPServer_exception("bind() failed");
 	}
 }
 
 void TCPServer::TCPS_listen() {
-	result = listen(listen_socket, SOMAXCONN);
+	int result = listen(listen_socket, SOMAXCONN);
 	if (result == SOCKET_ERROR) {
 		throw TCPServer_exception("listen() failed with error ");
 	}
@@ -165,7 +165,8 @@ void TCPServer::TCPS_ask_participation() {
 
 			std::cout << "Connected to the client" << std::endl;
 
-			recvbuf = (char*)malloc(10);
+			int result = 0;
+			char* recvbuf = (char*)malloc(10);
 			for (int i = 0; i < 10; i = i + result)
 				result = recv(client_socket, recvbuf + i, 10 - i, 0);
 
@@ -185,7 +186,7 @@ void TCPServer::TCPS_ask_participation() {
 					memcpy(s + 4, str.c_str(), 4);
 
 					// sending joining confirm
-					send_result = send(client_socket, s, 8, 0);
+					int send_result = send(client_socket, s, 8, 0);
 					if (send_result == SOCKET_ERROR) {
 						// connection reset by peer
 						if (WSAGetLastError() == 10054) {
@@ -277,8 +278,9 @@ void TCPServer::TCPS_ready_channel(int esp_id) {
 
 			// waiting to receive a READY message
 			char recvbuf[5];
-			int res;
-			for (int i = 0; i < 5; i = i + result)
+			int res = 0;
+			
+			for (int i = 0; i < 5; i = i + res)
 				res = recv(c_sock, recvbuf + i, 5 - i, 0);
 
 
@@ -306,7 +308,7 @@ void TCPServer::TCPS_ready_channel(int esp_id) {
 					char sendbuf[5];
 					strncpy_s(sendbuf, 6, READY_MSG_H, 5);
 
-					send_result = send(c_sock, sendbuf, 5, 0);
+					int send_result = send(c_sock, sendbuf, 5, 0);
 					if (send_result == SOCKET_ERROR) {
 						// connection reset by peer
 						if (WSAGetLastError() == 10054) {
@@ -326,7 +328,7 @@ void TCPServer::TCPS_ready_channel(int esp_id) {
 					continue;
 				}
 			}
-			else if (result < 0) {
+			else if (res < 0) {
 				throw TCPServer_exception("CHILD THREAD [READY] - recv() failed with error ");
 			}
 		}
@@ -428,7 +430,7 @@ void TCPServer::TCPS_service(SOCKET client_socket) {
 
 
 				// just send back a packet to the client as ack
-				send_result = send(client_socket, recvbuf, PACKET_SIZE, 0);
+				int send_result = send(client_socket, recvbuf, PACKET_SIZE, 0);
 				if (send_result == SOCKET_ERROR) {
 					// connection reset by peer
 					if (WSAGetLastError() == 10054) {
@@ -473,14 +475,14 @@ void TCPServer::TCPS_service(SOCKET client_socket) {
 }
 
 void TCPServer::TCPS_close_listen_socket() {
-	result = closesocket(listen_socket);
+	int result = closesocket(listen_socket);
 	if (result == SOCKET_ERROR) {
 		throw TCPServer_exception("closesocket() failed with error ");
 	}
 }
 
 void TCPServer::TCPS_shutdown(SOCKET client_socket) {
-	result = shutdown(client_socket, SD_SEND);
+	int result = shutdown(client_socket, SD_SEND);
 	if (result == SOCKET_ERROR) {
 		throw TCPServer_exception("shutdown() failed with error ");
 	}

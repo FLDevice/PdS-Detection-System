@@ -10,7 +10,7 @@ template <typename T>
 bool BlockingQueue<T>::waitPop(T& out) {
 	std::unique_lock<std::mutex> lock(mutex);
 	// block if data is not available
-	m_condition.wait(lock, [this]() {
+	condition.wait(lock, [this]() {
 		return !queue.empty() || !is_valid;
 	});
 	// exit if queue is not valid

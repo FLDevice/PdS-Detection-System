@@ -23,7 +23,6 @@
 
 #include <dlib-19.16\dlib\optimization.h>
 #include <dlib-19.16\dlib\global_optimization.h>
-
 #include "PacketProcessor.h"
 
 #pragma comment (lib, "Ws2_32.lib")
@@ -169,13 +168,6 @@ protected:
 	addrinfo *aresult = NULL;
 	addrinfo hints;
 
-	// buffer for received packets
-	char* recvbuf;
-
-	// current operation's result
-	int result;
-	// send result
-	int send_result;
 
 	/** how many times after a socket error the connection is retried
 	before launching an exception */
