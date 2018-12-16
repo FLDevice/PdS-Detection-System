@@ -5,17 +5,16 @@ std::vector<int> x;
 std::vector<int> y;
 std::vector<double> d;
 */
-TCPServer::TCPServer() {
-	std::cout << " === TCPServer version 0.1 ===" << std::endl;
+TCPServer::TCPServer(long int espn, std::vector<long int> vec) {
+	std::cout << " === TCPServer version 0.5 ===" << std::endl;
 
 	setupDB();
-	//User inputs ESP32 amount   
+
 	while (1) {
-		std::cout << "Insert how many ESP32 will join the system: ";
 
 		try {
-			esp_number = Utilities::getIntFromInput();
-			std::cout << std::endl;
+		
+			esp_number = espn;
 
 			if (esp_number > 0 && esp_number <= MAX_ESP32_NUM)
 				break;
@@ -47,7 +46,7 @@ TCPServer::TCPServer() {
 			TCPS_socket();
 			TCPS_bind();
 			TCPS_listen();
-			TCPS_ask_participation();
+			TCPS_ask_participation(vec);
 			TCPS_close_listen_socket();
 
 			TCPS_initialize();
@@ -127,7 +126,7 @@ void TCPServer::TCPS_listen() {
 	}
 }
 
-void TCPServer::TCPS_ask_participation() {
+void TCPServer::TCPS_ask_participation(std::vector<long int> vec) {
 
 	std::cout << "Please unplug all the ESP32 from the energy source. You will plug them one at a time as requested." << std::endl << std::endl;
 
@@ -135,17 +134,16 @@ void TCPServer::TCPS_ask_participation() {
 	std::thread threads[MAX_ESP32_NUM];
 
 	// for each ESP32 ask for its position in the space and its INIT packet
-	for (int i = 0; i < esp_number; i++) {
+	for (int i = 0; i < esp_number*2; i+=2) {
 		int posx, posy;
 		uint8_t mac[6];
 
 		try {
-			std::cout << "ESP32 number " << i << ": insert its spacial position." << std::endl;
-			std::cout << "X coordinate: ";
-			posx = Utilities::getIntFromInput();
+			posx = vec[i], posy = vec[i+1];
+			std::cout << "ESP32 number " << i/2 << std::endl;
+			std::cout << "X coordinate: " << posx;
 
-			std::cout << std::endl << "Y coordinate: ";
-			posy = Utilities::getIntFromInput();
+			std::cout << std::endl << "Y coordinate: " << posy;
 
 			std::cout << std::endl;
 		}
@@ -201,7 +199,7 @@ void TCPServer::TCPS_ask_participation() {
 					free(recvbuf);
 
 					// arguments: id, mac address, x pos, y pos, ready port for socket creation
-					ESP32 espdata(i, mac, posx, posy, port);
+					ESP32 espdata(i/2, mac, posx, posy, port);
 					espdata.store_esp();
 					esp_list.push_back(espdata);
 

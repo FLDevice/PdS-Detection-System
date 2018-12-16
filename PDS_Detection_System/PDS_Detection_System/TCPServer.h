@@ -176,7 +176,7 @@ protected:
 
 public:
 
-	TCPServer();
+	TCPServer(long int espn, std::vector<long int> vec);
 
 private:
 	/** initialize winsock, may throw exception */
@@ -192,7 +192,7 @@ private:
 	void TCPS_listen();
 
 	/** listen for ESP32 joining requests */
-	void TCPS_ask_participation();
+	void TCPS_ask_participation(std::vector<long int> vec);
 
 	/** create a connection with the ESP32 to notify when the server is ready */
 	void TCPS_ready_channel(int esp_id);
