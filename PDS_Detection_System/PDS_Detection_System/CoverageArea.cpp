@@ -89,7 +89,7 @@ bool CoverageArea::doIntersect(Point p1, Point q1, Point p2, Point q2)
 }
 
 // Returns true if the point p lies inside the polygon[] with n vertices 
-bool CoverageArea::isInside(int x, int y)
+bool CoverageArea::isInside(double x, double y)
 {
 	int n = polygon.size();
 	Point p = { x, y };

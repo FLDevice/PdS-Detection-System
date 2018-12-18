@@ -24,7 +24,7 @@ private:
 
 	double static meanSquareError(const column_vector& m);
 
-	void trilaterate(int * pos_x, int * pos_y);
+	void trilaterate(double * pos_x, double * pos_y);
 
 public:
 
