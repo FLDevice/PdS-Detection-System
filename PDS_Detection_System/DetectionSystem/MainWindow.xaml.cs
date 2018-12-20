@@ -26,6 +26,7 @@ namespace DetectionSystem
             Home homepage = new Home();
             Closing += homepage.OnWindowClosing;
             Content = homepage;
+            ResizeMode = ResizeMode.CanMinimize;
         }
     }
 }

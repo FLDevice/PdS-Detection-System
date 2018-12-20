@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MySql.Data.MySqlClient;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -22,10 +23,9 @@ namespace DetectionSystem
     public partial class Home : Page
     {
         protected Process TCPServer;
+        protected MySqlConnection DBconnection;
 
-        protected String project_path = "C:\\Users\\Ale\\source\\repos\\FlavioLorenzo\\";
-        protected String exe_path = "PdS-Detection-System\\PDS_Detection_System\\x64\\Release\\";
-        protected String filename = "PDS_Detection_System.exe";
+        protected String filename;
 
         public static TextBox output_box;
         public static TextBox espn_box;
@@ -37,17 +37,37 @@ namespace DetectionSystem
             InitializeComponent();
             output_box = (TextBox)this.FindName("stdout");
             espn_box = (TextBox)this.FindName("esp_number");
+           
+            try
+            {
+                DBconnection = new MySqlConnection();
+                DBconnection.ConnectionString = "server=localhost; database=pds_db; uid=pds_user; pwd=password";
+                DBconnection.Open();
+                MySqlCommand cmm = new MySqlCommand("select count(*) from devices", DBconnection);
+                MySqlDataReader r = cmm.ExecuteReader();
+                while (r.Read()) {
+                    output_box.AppendText(""+r[0]);
+                }
+            }
+            catch (Exception e)
+            {
+                output_box.AppendText(e.Message);
+            }
+            
+
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
+            if (filename == null) return;
+
             if (is_running == false)
             {
                 is_running = true;
             
                 // View Expense Report
                 TCPServer = new Process();
-                TCPServer.StartInfo.FileName = project_path + exe_path + filename;
+                TCPServer.StartInfo.FileName = filename;
 
                 string num = espn_box.Text;
                 string x0 = esp0x.Text, y0 = esp0y.Text;
@@ -91,6 +111,17 @@ namespace DetectionSystem
 
                 TCPServer.Kill();
                 TCPServer.WaitForExit();
+            }
+        }
+
+        private void Exe_picker_Click(object sender, RoutedEventArgs e)
+        {
+            Microsoft.Win32.OpenFileDialog dlg = new Microsoft.Win32.OpenFileDialog();
+            dlg.Filter = "Executable File (.exe) | *.exe";
+            Nullable<bool> result = dlg.ShowDialog();
+
+            if (result == true) {
+                filename = dlg.FileName; 
             }
         }
     }
