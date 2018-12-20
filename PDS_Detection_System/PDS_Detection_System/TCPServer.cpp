@@ -562,8 +562,8 @@ void TCPServer::storePackets(int count, int esp_id, char* recvbuf) {
 				ProbePacket pp;
 				memcpy(&pp, recvbuf + (i*PACKET_SIZE), PACKET_SIZE);
 				pp_vector.push(pp);
-				printf("%d \t", i);
-				pp.print(); // MODIFIED
+				//printf("%d \t", i);
+				//pp.print(); // MODIFIED
 				pp.storeInDB(packetTable, time_since_last_update, esp_id);
 			}
 		}
