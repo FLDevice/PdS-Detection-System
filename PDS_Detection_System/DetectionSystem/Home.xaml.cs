@@ -26,15 +26,31 @@ namespace DetectionSystem
         protected MySqlConnection DBconnection;
 
         protected string filename;
-        public static TextBox espn_box;
+        public static Label espn_box;
         public static Label output_box;
 
+        protected const int startEspNum = 1;
+        protected int espNum;
 
         public Home()
         {
             InitializeComponent();
-            espn_box = (TextBox)this.FindName("esp_number");
+            esp_number.Content = startEspNum;
+            espNum = startEspNum;
+            espn_box = (Label)this.FindName("esp_number");
             output_box = (Label)this.FindName("info_picker");
+            for (int i = startEspNum; i < 8; i++) {
+                TextBox espBoxX = (TextBox)this.FindName("esp" + i + "x");
+                espBoxX.Visibility = Visibility.Hidden;
+                TextBox espBoxY = (TextBox)this.FindName("esp" + i + "y");
+                espBoxY.Visibility = Visibility.Hidden;
+                Label espBoxXL = (Label)this.FindName("esp" + i + "xl");
+                espBoxXL.Visibility = Visibility.Hidden;
+                Label espBoxYL = (Label)this.FindName("esp" + i + "yl");
+                espBoxYL.Visibility = Visibility.Hidden;
+            }
+
+            //TODO: - Outputbox red text and better position
 
         }
 
@@ -46,7 +62,7 @@ namespace DetectionSystem
             }        
 
             
-            string num = espn_box.Text;
+            string num = espn_box.Content.ToString();
             string x0 = esp0x.Text, y0 = esp0y.Text;
             string x1 = esp1x.Text, y1 = esp1y.Text;
             string x2 = esp2x.Text, y2 = esp2y.Text;
@@ -73,6 +89,39 @@ namespace DetectionSystem
 
             if (result == true) {
                 filename = dlg.FileName; 
+            }
+        }
+
+        private void Esp_increase_Click(object sender, RoutedEventArgs e)
+        {
+            if (espNum < 8) {
+                TextBox espBoxX = (TextBox)this.FindName("esp" + espNum + "x");
+                espBoxX.Visibility = Visibility.Visible;
+                TextBox espBoxY = (TextBox)this.FindName("esp" + espNum + "y");
+                espBoxY.Visibility = Visibility.Visible;
+                Label espBoxXL = (Label)this.FindName("esp" + espNum + "xl");
+                espBoxXL.Visibility = Visibility.Visible;
+                Label espBoxYL = (Label)this.FindName("esp" + espNum + "yl");
+                espBoxYL.Visibility = Visibility.Visible;
+                espNum++;
+                esp_number.Content = espNum;
+            }
+        }
+
+        private void Esp_derease_Click(object sender, RoutedEventArgs e)
+        {
+            if (espNum > 1)
+            {
+                espNum--;
+                esp_number.Content = espNum;
+                TextBox espBoxX = (TextBox)this.FindName("esp" + espNum + "x");
+                espBoxX.Visibility = Visibility.Hidden;
+                TextBox espBoxY = (TextBox)this.FindName("esp" + espNum + "y");
+                espBoxY.Visibility = Visibility.Hidden;
+                Label espBoxXL = (Label)this.FindName("esp" + espNum + "xl");
+                espBoxXL.Visibility = Visibility.Hidden;
+                Label espBoxYL = (Label)this.FindName("esp" + espNum + "yl");
+                espBoxYL.Visibility = Visibility.Hidden;                
             }
         }
     }

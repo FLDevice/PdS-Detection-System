@@ -5,7 +5,7 @@
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
       xmlns:local="clr-namespace:DetectionSystem"
       mc:Ignorable="d" 
-      d:DesignWidth="1000"
+      d:DesignWidth="600"
       Title="Detection System - Home">
 
     <WrapPanel>
@@ -27,13 +27,22 @@
             FontWeight="Bold" FontSize="12" Foreground="White" >
                 ESP number
             </Label>
-            <TextBox Name="esp_number" Grid.Column="0" Grid.Row="0" Width ="100" Height="20"
-                     Background="White" Foreground="Black"
-                     FontFamily="Courier New" FontSize="12"
-                     TextWrapping="Wrap" VerticalAlignment="Top" HorizontalAlignment="Left"
-                     Margin="20,20,20,10" MaxLines="1">
-                2
-            </TextBox>
+            <Label Name="esp_number" Grid.Column="0" Grid.Row="0" VerticalAlignment="Top" FontFamily="Courier New" 
+            HorizontalAlignment="Left" FontWeight="Bold" FontSize="12" Foreground="Black"  Margin="20,22,20,10" Background="White" 
+            Width="25" Height="25" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                1
+            </Label>
+            <Button Name="esp_increase" Grid.Column="0" Grid.Row="0" VerticalAlignment="Top" FontFamily="Courier New" 
+            HorizontalAlignment="Left" FontWeight="Bold" FontSize="12" Foreground="Black"  Margin="50,20,20,10"  
+            Width ="30" Height="15" Click="Esp_increase_Click">
+                +
+            </Button>
+            <Button Name="esp_derease" Grid.Column="0" Grid.Row="0" VerticalAlignment="Top" FontFamily="Courier New" 
+            HorizontalAlignment="Left" FontWeight="Bold" FontSize="12" Foreground="Black"  Margin="50,35,20,10"  
+            Width ="30" Height="15" Click="Esp_derease_Click">
+                -
+            </Button>
+            
             <Label Grid.Column="0" Grid.Row="0" VerticalAlignment="Top" FontFamily="Courier New" 
             FontWeight="Bold" FontSize="12" Foreground="White" Margin="140,0,0,0">
                Server .exe
@@ -51,7 +60,7 @@
             </Label>
 
 
-            <Label Grid.Column="0" Grid.Row="1" VerticalAlignment="Top" FontFamily="Courier New" 
+            <Label Name="esp0xl" Grid.Column="0" Grid.Row="1" VerticalAlignment="Top" FontFamily="Courier New" 
             FontWeight="Bold" FontSize="12" Foreground="White" Margin="20,0,0,0">
                 ESP#0 X (cm)
             </Label>
@@ -62,7 +71,7 @@
                      Margin="20,20,100,0" MaxLines="1">
                 0
             </TextBox>
-            <Label Grid.Column="0" Grid.Row="1" VerticalAlignment="Top" FontFamily="Courier New" 
+            <Label Name="esp0yl" Grid.Column="0" Grid.Row="1" VerticalAlignment="Top" FontFamily="Courier New" 
             FontWeight="Bold" FontSize="12" Foreground="White"  Margin="140,0,0,0">
                 ESP#0 Y (cm)
             </Label>
@@ -74,7 +83,7 @@
                 0
             </TextBox>
 
-            <Label Grid.Column="0" Grid.Row="1" VerticalAlignment="Top" FontFamily="Courier New" 
+            <Label Name="esp1xl" Grid.Column="0" Grid.Row="1" VerticalAlignment="Top" FontFamily="Courier New" 
             FontWeight="Bold" FontSize="12" Foreground="White" Margin="300,0,0,0">
                 ESP#1 X (cm)
             </Label>
@@ -85,7 +94,7 @@
                      Margin="300,20,100,0" MaxLines="1">
                 0
             </TextBox>
-            <Label Grid.Column="0" Grid.Row="1" VerticalAlignment="Top" FontFamily="Courier New" 
+            <Label Name="esp1yl" Grid.Column="0" Grid.Row="1" VerticalAlignment="Top" FontFamily="Courier New" 
             FontWeight="Bold" FontSize="12" Foreground="White"  Margin="420,0,0,0">
                 ESP#1 Y (cm)
             </Label>
@@ -98,7 +107,7 @@
             </TextBox>
 
 
-            <Label Grid.Column="0" Grid.Row="2" VerticalAlignment="Top" FontFamily="Courier New" 
+            <Label Name="esp2xl" Grid.Column="0" Grid.Row="2" VerticalAlignment="Top" FontFamily="Courier New" 
             FontWeight="Bold" FontSize="12" Foreground="White" Margin="20,0,0,0">
                 ESP#2 X (cm)
             </Label>
@@ -109,7 +118,7 @@
                      Margin="20,20,100,0" MaxLines="1">
                 0
             </TextBox>
-            <Label Grid.Column="0" Grid.Row="2" VerticalAlignment="Top" FontFamily="Courier New" 
+            <Label Name="esp2yl" Grid.Column="0" Grid.Row="2" VerticalAlignment="Top" FontFamily="Courier New" 
             FontWeight="Bold" FontSize="12" Foreground="White"  Margin="140,0,0,0">
                 ESP#2 Y (cm)
             </Label>
@@ -120,7 +129,7 @@
                      Margin="140,20,100,0" MaxLines="1">
                 0
             </TextBox>
-            <Label Grid.Column="0" Grid.Row="2" VerticalAlignment="Top" FontFamily="Courier New" 
+            <Label Name="esp3xl" Grid.Column="0" Grid.Row="2" VerticalAlignment="Top" FontFamily="Courier New" 
             FontWeight="Bold" FontSize="12" Foreground="White" Margin="300,0,0,0">
                 ESP#3 X (cm)
             </Label>
@@ -131,7 +140,7 @@
                      Margin="300,20,100,0" MaxLines="1">
                 0
             </TextBox>
-            <Label Grid.Column="0" Grid.Row="2" VerticalAlignment="Top" FontFamily="Courier New" 
+            <Label Name="esp3yl" Grid.Column="0" Grid.Row="2" VerticalAlignment="Top" FontFamily="Courier New" 
             FontWeight="Bold" FontSize="12" Foreground="White"  Margin="420,0,0,0">
                 ESP#3 Y (cm)
             </Label>
@@ -143,7 +152,7 @@
                 0
             </TextBox>
 
-            <Label Grid.Column="0" Grid.Row="3" VerticalAlignment="Top" FontFamily="Courier New" 
+            <Label Name="esp4xl" Grid.Column="0" Grid.Row="3" VerticalAlignment="Top" FontFamily="Courier New" 
             FontWeight="Bold" FontSize="12" Foreground="White" Margin="20,0,0,0">
                 ESP#4 X (cm)
             </Label>
@@ -154,7 +163,7 @@
                      Margin="20,20,100,0" MaxLines="1">
                 0
             </TextBox>
-            <Label Grid.Column="0" Grid.Row="3" VerticalAlignment="Top" FontFamily="Courier New" 
+            <Label Name="esp4yl" Grid.Column="0" Grid.Row="3" VerticalAlignment="Top" FontFamily="Courier New" 
             FontWeight="Bold" FontSize="12" Foreground="White"  Margin="140,0,0,0">
                 ESP#4 Y (cm)
             </Label>
@@ -166,7 +175,7 @@
                 0
             </TextBox>
 
-            <Label Grid.Column="0" Grid.Row="3" VerticalAlignment="Top" FontFamily="Courier New" 
+            <Label Name="esp5xl" Grid.Column="0" Grid.Row="3" VerticalAlignment="Top" FontFamily="Courier New" 
             FontWeight="Bold" FontSize="12" Foreground="White" Margin="300,0,0,0">
                 ESP#5 X (cm)
             </Label>
@@ -177,7 +186,7 @@
                      Margin="300,20,100,0" MaxLines="1">
                 0
             </TextBox>
-            <Label Grid.Column="0" Grid.Row="3" VerticalAlignment="Top" FontFamily="Courier New" 
+            <Label Name="esp5yl" Grid.Column="0" Grid.Row="3" VerticalAlignment="Top" FontFamily="Courier New" 
             FontWeight="Bold" FontSize="12" Foreground="White"  Margin="420,0,0,0">
                 ESP#5 Y (cm)
             </Label>
@@ -190,7 +199,7 @@
             </TextBox>
 
 
-            <Label Grid.Column="0" Grid.Row="4" VerticalAlignment="Top" FontFamily="Courier New" 
+            <Label Name="esp6xl" Grid.Column="0" Grid.Row="4" VerticalAlignment="Top" FontFamily="Courier New" 
             FontWeight="Bold" FontSize="12" Foreground="White" Margin="20,0,0,0">
                 ESP#6 X (cm)
             </Label>
@@ -201,7 +210,7 @@
                      Margin="20,20,100,0" MaxLines="1">
                 0
             </TextBox>
-            <Label Grid.Column="0" Grid.Row="4" VerticalAlignment="Top" FontFamily="Courier New" 
+            <Label Name="esp6yl" Grid.Column="0" Grid.Row="4" VerticalAlignment="Top" FontFamily="Courier New" 
             FontWeight="Bold" FontSize="12" Foreground="White"  Margin="140,0,0,0">
                 ESP#6 Y (cm)
             </Label>
@@ -213,7 +222,7 @@
                 0
             </TextBox>
 
-            <Label Grid.Column="0" Grid.Row="4" VerticalAlignment="Top" FontFamily="Courier New" 
+            <Label Name="esp7xl" Grid.Column="0" Grid.Row="4" VerticalAlignment="Top" FontFamily="Courier New" 
             FontWeight="Bold" FontSize="12" Foreground="White" Margin="300,0,0,0">
                 ESP#7 X (cm)
             </Label>
@@ -224,7 +233,7 @@
                      Margin="300,20,100,0" MaxLines="1">
                 0
             </TextBox>
-            <Label Grid.Column="0" Grid.Row="4" VerticalAlignment="Top" FontFamily="Courier New" 
+            <Label Name="esp7yl" Grid.Column="0" Grid.Row="4" VerticalAlignment="Top" FontFamily="Courier New" 
             FontWeight="Bold" FontSize="12" Foreground="White"  Margin="420,0,0,0">
                 ESP#7 Y (cm)
             </Label>
