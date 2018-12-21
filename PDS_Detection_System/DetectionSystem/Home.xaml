@@ -37,7 +37,7 @@
             <Label Grid.Column="0" Grid.Row="0" VerticalAlignment="Top" FontFamily="Courier New" 
             FontWeight="Bold" FontSize="12" Foreground="White" Margin="140,0,0,0">
                Server .exe
-            </Label>
+            </Label>            
             <Button Name="exe_picker" Grid.Column="0" Grid.Row="0" Width ="100" Height="20"
                       Foreground="Black"
                      FontFamily="Courier New" FontSize="12"
@@ -45,6 +45,11 @@
                      Margin="140,20,20,10" Click="Exe_picker_Click">
                Browse
             </Button>
+            <Label Name="info_picker" Grid.Column="0" Grid.Row="0" VerticalAlignment="Top" FontFamily="Courier New" 
+            FontWeight="Bold" FontSize="12" Foreground="White" Margin="260,0,0,0">
+                
+            </Label>
+
 
             <Label Grid.Column="0" Grid.Row="1" VerticalAlignment="Top" FontFamily="Courier New" 
             FontWeight="Bold" FontSize="12" Foreground="White" Margin="20,0,0,0">
@@ -235,28 +240,8 @@
                 Height="25"  HorizontalAlignment="Right" Click="Button_Click">
                 Start Server
             </Button>
-        
-            <Label Grid.Column="0" Grid.Row="6" VerticalAlignment="Top" FontFamily="Courier New" 
-            FontWeight="Bold" FontSize="18" Foreground="White" Margin="0,0,0,0">
-                Server Console
-            </Label>
-            <TextBox Name="stdout" Grid.Column="0" Grid.Row="6" Height="150" Width="500"
-                    Background="DarkGray" Foreground="White"
-                    FontFamily="Courier New" FontSize="12" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                    ScrollViewer.CanContentScroll="True"
-                    TextWrapping="Wrap" VerticalAlignment="Top" Margin="20,40,20,20" MaxLines="8"
-                    IsReadOnly="True">
-            </TextBox>
         </Grid>
-        
-        <Canvas  Name="paintSurface" Width="400" Height="400">
-            <Canvas.Background>
-                <SolidColorBrush Color="LightCyan" Opacity="100"/>
-            </Canvas.Background>
-            <Line Name="yaxis" Stroke="Black" StrokeThickness="2" X1="200" Y1="0" X2="200" Y2="400"></Line>
-            <Line Name="xaxis" Stroke="Black" StrokeThickness="2" X1="0" Y1="200" X2="400" Y2="200"></Line>
-        </Canvas>
-        
+
         <WrapPanel.Background>
             <ImageBrush ImageSource="app_bg.png"/>
         </WrapPanel.Background>
