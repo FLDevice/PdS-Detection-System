@@ -5,10 +5,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DetectionSystem"
         mc:Ignorable="d"
-        Title="DataWindow" Height="450" Width="800">
+        Title="DataWindow" Height="Auto" Width="Auto">
     <Grid>
         <Label VerticalAlignment="Top" FontFamily="Courier New" 
-            FontWeight="Bold" FontSize="18" Foreground="Black" Margin="0,0,0,0">
+            FontWeight="Bold" FontSize="18" Foreground="White" Margin="0,0,0,0">
             Server Console
         </Label>
         <TextBox Name="stdout2" Height="100" Width="700"
@@ -18,5 +18,9 @@
                     TextWrapping="Wrap" VerticalAlignment="Top" Margin="20,40,20,20" MaxLines="8"
                     IsReadOnly="True">
         </TextBox>
+
+        <Grid.Background>
+            <ImageBrush ImageSource="app_bg.png"/>
+        </Grid.Background>
     </Grid>
 </Window>

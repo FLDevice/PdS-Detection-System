@@ -55,7 +55,7 @@ namespace DetectionSystem
             }
             catch (Exception e)
             {
-                output_box.AppendText(e.Message);
+                output_box.AppendText(e.Message + "\n");
                 output_box.ScrollToEnd();
             }
 

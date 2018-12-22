@@ -25,6 +25,7 @@ namespace DetectionSystem
             InitializeComponent();
             Home homepage = new Home();
             Content = homepage;
+            SizeToContent = SizeToContent.WidthAndHeight;
             ResizeMode = ResizeMode.CanMinimize;
         }
         

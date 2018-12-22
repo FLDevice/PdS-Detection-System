@@ -49,9 +49,6 @@ namespace DetectionSystem
                 Label espBoxYL = (Label)this.FindName("esp" + i + "yl");
                 espBoxYL.Visibility = Visibility.Hidden;
             }
-
-            //TODO: - Outputbox red text and better position
-
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)
@@ -60,7 +57,6 @@ namespace DetectionSystem
                 output_box.Content = "Error: Server executable file not selected.";
                 return;
             }        
-
             
             string num = espn_box.Content.ToString();
             string x0 = esp0x.Text, y0 = esp0y.Text;
