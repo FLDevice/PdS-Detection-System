@@ -13,6 +13,9 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using LiveCharts;
+using LiveCharts.Wpf;
+using LiveCharts.Defaults;
 
 namespace DetectionSystem
 {
@@ -59,6 +62,42 @@ namespace DetectionSystem
                 output_box.ScrollToEnd();
             }
 
+            /*** BASIC COLUMN CHART ***/
+            SeriesCollection = new SeriesCollection
+            {
+                new ColumnSeries
+                {
+                    Title = "2015",
+                    Values = new ChartValues<double> { 10, 50, 39, 50 }
+                }
+            };
+
+            //adding series will update and animate the chart automatically
+            SeriesCollection.Add(new ColumnSeries
+            {
+                Title = "2016",
+                Values = new ChartValues<double> { 11, 56, 42 }
+            });
+
+            //also adding values updates and animates the chart automatically
+            SeriesCollection[1].Values.Add(48d);
+
+            Labels = new[] { "Maria", "Susan", "Charles", "Frida" };
+            Formatter = value => value.ToString("N");
+
+            DataContext = this;
+
+            /*** SCATTER PLOT CHART ***/
+            var rand = new Random();
+            ValuesA = new ChartValues<ObservablePoint>();
+            ValuesB = new ChartValues<ObservablePoint>();
+            
+
+            for (var i = 0; i < 20; i++)
+            {
+                ValuesA.Add(new ObservablePoint(rand.NextDouble() * 10, rand.NextDouble() * 10));
+                ValuesB.Add(new ObservablePoint(rand.NextDouble() * 10, rand.NextDouble() * 10));
+            }
         }
 
 
@@ -109,8 +148,16 @@ namespace DetectionSystem
                 TCPServer.WaitForExit();
             }
         }
+        
 
+        public SeriesCollection SeriesCollection { get; set; }
+        public string[] Labels { get; set; }
+        public Func<double, string> Formatter { get; set; }
 
+        /*** SCATTER PLOT ***/
+        public ChartValues<ObservablePoint> ValuesA { get; set; }
+        public ChartValues<ObservablePoint> ValuesB { get; set; }
+        public ChartValues<ObservablePoint> ValuesC { get; set; }
 
     }
 }
