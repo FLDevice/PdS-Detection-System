@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.IO.Pipes;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -24,8 +26,11 @@ namespace DetectionSystem
     /// </summary>
     public partial class DataWindow : Window
     {
+        private const string PIPENAME = "pds_detection_system";
+
         protected Process TCPServer;
         protected MySqlConnection DBconnection;
+        protected NamedPipeServerStream ServerPipe;
 
         private string fileN;
         private string args;
@@ -44,6 +49,17 @@ namespace DetectionSystem
             Closing += OnWindowClosing;
             output_box = (TextBox)this.FindName("stdout2");
             StartServer();
+
+            // block here until the c++ application connects to the pipe
+            ServerPipe = new NamedPipeServerStream(PIPENAME);
+            ServerPipe.WaitForConnection();
+            StreamReader reader = new StreamReader(ServerPipe);
+            output_box.AppendText("Reading from pipe: ");
+            while (reader.Peek() != -1) {
+                output_box.AppendText((char)reader.Read()+"");
+            }
+            output_box.AppendText("\nnothing more to read on pipe\n");
+
             try
             {
                 DBconnection = new MySqlConnection();

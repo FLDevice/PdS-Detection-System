@@ -12,7 +12,7 @@
             FontWeight="Bold" FontSize="18" Foreground="White" Margin="0,0,0,0">
             Server Console
         </Label>
-        <TextBox Name="stdout2" Height="100" Width="700"
+        <TextBox Name="stdout2" Height="200" Width="700"
                     Background="Black" Foreground="White"
                     FontFamily="Courier New" FontSize="12" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                     ScrollViewer.CanContentScroll="True"
