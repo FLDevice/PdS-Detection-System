@@ -183,7 +183,7 @@ public:
 private:
 
 	/** connects to the pipe created by the GUI application, may throw exception */
-	void TCPS_pipe_connect();
+	void TCPS_pipe_send(const char* message);
 
 	/** initialize winsock, may throw exception */
 	void TCPS_initialize();

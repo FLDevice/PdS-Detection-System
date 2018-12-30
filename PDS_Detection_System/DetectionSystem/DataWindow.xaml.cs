@@ -18,6 +18,8 @@ using System.Windows.Shapes;
 using LiveCharts;
 using LiveCharts.Wpf;
 using LiveCharts.Defaults;
+using System.Threading;
+
 
 namespace DetectionSystem
 {
@@ -50,16 +52,10 @@ namespace DetectionSystem
             output_box = (TextBox)this.FindName("stdout2");
             StartServer();
 
-            // block here until the c++ application connects to the pipe
-            ServerPipe = new NamedPipeServerStream(PIPENAME);
-            ServerPipe.WaitForConnection();
-            StreamReader reader = new StreamReader(ServerPipe);
-            output_box.AppendText("Reading from pipe: ");
-            while (reader.Peek() != -1) {
-                output_box.AppendText((char)reader.Read()+"");
-            }
-            output_box.AppendText("\nnothing more to read on pipe\n");
-
+            /*** Pipe handle Function ***/
+            Thread thread = new Thread(new ThreadStart(PipeSyncFunction));
+            thread.Start();
+            
             try
             {
                 DBconnection = new MySqlConnection();
@@ -174,6 +170,41 @@ namespace DetectionSystem
         public ChartValues<ObservablePoint> ValuesA { get; set; }
         public ChartValues<ObservablePoint> ValuesB { get; set; }
         public ChartValues<ObservablePoint> ValuesC { get; set; }
+
+
+        public void PipeSyncFunction() {
+            try{
+                while (true)
+                {
+                    using (var ServerPipe = new NamedPipeServerStream(PIPENAME))
+                    {
+                        ServerPipe.WaitForConnection();
+                        StreamReader reader = new StreamReader(ServerPipe);
+                        //WriteOnTextBox("Reading from pipe: ");
+                        while (reader.Peek() != -1)
+                        {
+                            WriteOnTextBox((char)reader.Read() + "");
+                        }
+
+                        if (ServerPipe.IsConnected)
+                        {
+                            // must disconnect 
+                            ServerPipe.Disconnect();
+                        }
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                WriteOnTextBox(exception.Message);
+            }
+        }
+
+        public void WriteOnTextBox(string message) {
+            Application.Current.Dispatcher.Invoke(() => {
+                output_box.AppendText(message);
+            });
+        }
 
     }
 }

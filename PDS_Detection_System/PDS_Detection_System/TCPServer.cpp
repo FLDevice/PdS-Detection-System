@@ -7,9 +7,8 @@ std::vector<double> d;
 */
 TCPServer::TCPServer(long int espn, std::vector<long int> vec) {
 	std::cout << " === TCPServer version 0.5 ===" << std::endl;
-
 	try {
-		TCPS_pipe_connect();
+		TCPS_pipe_send("TCPServer");
 	}
 	catch (std::exception& e) {
 		std::cout << e.what() << std::endl;
@@ -23,7 +22,6 @@ TCPServer::TCPServer(long int espn, std::vector<long int> vec) {
 		try {
 		
 			esp_number = espn;
-
 			if (esp_number > 0 && esp_number <= MAX_ESP32_NUM)
 				break;
 			else {
@@ -97,7 +95,7 @@ TCPServer::TCPServer(long int espn, std::vector<long int> vec) {
 	}
 }
 
-void TCPServer::TCPS_pipe_connect() {
+void TCPServer::TCPS_pipe_send(const char* message) {
 
 	namedPipe = CreateFile(PIPENAME, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
 	if (namedPipe == INVALID_HANDLE_VALUE) {
@@ -106,11 +104,12 @@ void TCPServer::TCPS_pipe_connect() {
 
 	char mybuffer[10];
 	DWORD bytesWritten;
-	strcpy(mybuffer, "TCPServer");
+	strcpy(mybuffer, message);
 	BOOL r = WriteFile(namedPipe, mybuffer, strlen(mybuffer), &bytesWritten, NULL);
 	if (bytesWritten != strlen(mybuffer)) {
 		throw std::exception("failed writing on pipe");
 	}
+	CloseHandle(namedPipe);
 }
 
 void TCPServer::TCPS_initialize() {
