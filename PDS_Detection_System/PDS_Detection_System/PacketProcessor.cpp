@@ -12,8 +12,8 @@ PacketProcessor::PacketProcessor(int count)
 
 //Method that estimates the distance (in meters) starting from the RSSI
 double PacketProcessor::getDistanceFromRSSI(double rssi) {
-	double rssiAtOneMeter = -59;
-	double d = pow(10, (rssiAtOneMeter - rssi) / 20);
+	double rssiAtOneMeter = -55;
+	double d = pow(10, (rssiAtOneMeter - rssi) / 22);
 	return d;
 }
 
