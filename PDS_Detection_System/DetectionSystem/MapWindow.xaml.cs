@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel; // CancelEventArgs
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -13,6 +14,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using MySql.Data.MySqlClient;
+using Xceed.Wpf.Toolkit;
 
 namespace DetectionSystem
 {
@@ -25,7 +27,7 @@ namespace DetectionSystem
 
         private int maxX, minX, maxY, minY;
 
-        private const int ellipseSize = 15;
+        private const int ellipseSize = 10;
 
         public MapWindow()
         {
@@ -56,16 +58,30 @@ namespace DetectionSystem
             }
             catch (Exception exc)
             {
-                MessageBox.Show("The following error occurred: \n\n" + exc.Message);
+                System.Windows.MessageBox.Show("The following error occurred: \n\n" + exc.Message);
                 DBconnection.Close();
                 this.Close();
             }
         }
 
-        private void Button_Click(object sender, RoutedEventArgs e)
+        private void Update_Click(object sender, RoutedEventArgs e)
         {
             mapOfESP.Children.Clear();
 
+            string selectQuery;
+
+            selectQuery = "SELECT d.mac, d.x, d.y, d.timestamp "
+                        + "FROM devices d "
+                        + "JOIN( "
+                        + "SELECT mac, MAX(timestamp) timestamp "
+                        + "FROM devices "
+                        + "GROUP BY mac "
+                        + ") x ON(x.mac = d.mac AND x.timestamp = d.timestamp) "
+                        + "WHERE d.timestamp > UNIX_TIMESTAMP(NOW()) - 120 ";
+
+            if(CheckMacAddress(macBox.Text))
+                selectQuery += "AND d.mac = '" + macBox.Text + "'";
+            
             try
             {
                 DBconnection = new MySqlConnection();
@@ -74,15 +90,7 @@ namespace DetectionSystem
 
                 try
                 {
-                    MySqlCommand cmm = new MySqlCommand(
-                        "SELECT d.mac, d.x, d.y, d.timestamp "
-                        + "FROM devices d "
-                        + "JOIN( "
-                        + "SELECT mac, MAX(timestamp) timestamp "
-                        + "FROM devices "
-                        + "GROUP BY mac "
-                        + ") x ON(x.mac = d.mac AND x.timestamp = d.timestamp) "
-                        + "WHERE d.timestamp > UNIX_TIMESTAMP(NOW()) - 120 ", DBconnection);
+                    MySqlCommand cmm = new MySqlCommand(selectQuery, DBconnection);
                     MySqlDataReader dataReader = cmm.ExecuteReader();
 
                     while (dataReader.Read())
@@ -95,17 +103,26 @@ namespace DetectionSystem
                 }
                 catch (Exception exc)
                 {
-                    MessageBox.Show("The following error occurred: \n\n" + exc.Message);
+                    System.Windows.MessageBox.Show("The following error occurred: \n\n" + exc.Message);
                 }
 
                 DBconnection.Close();
             }
             catch (Exception exc)
             {
-                MessageBox.Show("The following error occurred: \n\n" + exc.Message);
+                System.Windows.MessageBox.Show("The following error occurred: \n\n" + exc.Message);
                 DBconnection.Close();
                 this.Close();
             }
+        }
+
+        // Check the correctness of the given mac address
+        private bool CheckMacAddress(string mac)
+        {
+            // Define a regular expression for repeated words.
+            Regex rx = new Regex(@"^(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}|(?:[0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}|(?:[0-9a-fA-F]{2}){5}[0-9a-fA-F]{2}$");
+
+            return rx.IsMatch(mac);
         }
 
         private void DrawDevice(string deviceName, int left, int bottom)
@@ -130,7 +147,7 @@ namespace DetectionSystem
 
             // Add a ToolTip that shows the name of the Device and its position 
             ToolTip tt = new ToolTip();
-            tt.Content = "MAC: " + deviceName + "\nX: " + left + " - Y: " + bottom;
+            tt.Content = "MAC: " + deviceName + "\nX: " + left + "- Y: " + bottom;
             myEllipse.ToolTip = tt;
 
             // Add the Ellipse to the Canvas.
@@ -164,6 +181,11 @@ namespace DetectionSystem
                 scaledValue = height / 2;
 
             return scaledValue;
+        }
+
+        private void Animation_Click(object sender, RoutedEventArgs e)
+        {
+            mapOfESP.Children.Clear();
         }
     }
 }

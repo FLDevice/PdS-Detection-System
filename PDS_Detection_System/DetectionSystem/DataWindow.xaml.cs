@@ -249,5 +249,10 @@ namespace DetectionSystem
             }
         }
 
+        private void GoToMapClick(object sender, RoutedEventArgs e)
+        {
+            MapWindow mapWin = new MapWindow();
+            mapWin.Show();
+        }
     }
 }
