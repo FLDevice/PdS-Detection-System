@@ -31,6 +31,15 @@
                     <lvc:Axis Title="Sold Apps" LabelFormatter="{Binding Formatter}"></lvc:Axis>
                 </lvc:CartesianChart.AxisY>
             </lvc:CartesianChart>
+
+            <Button Name="update_chart" Grid.Column="0" Grid.Row="0" Width ="100" Height="20"
+                      Foreground="Black"
+                     FontFamily="Courier New" FontSize="12"
+                     VerticalAlignment="Top" HorizontalAlignment="Left"
+                     Margin="140,220,20,10" Click="Update_chart_Click">
+                Update
+            </Button>
+
         </Grid>
 
         <Grid>
