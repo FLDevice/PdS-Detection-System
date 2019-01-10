@@ -57,6 +57,7 @@
                         </lvc:Axis.Separator>
                     </lvc:Axis>
                 </lvc:CartesianChart.AxisX>
+                <Button Content="Go to Map" HorizontalAlignment="Left" Margin="415,168,0,0" VerticalAlignment="Top" Width="75" Click="GoToMapClick"/>
             </lvc:CartesianChart>
         </Grid>
 

@@ -12,8 +12,8 @@ PacketProcessor::PacketProcessor(int count)
 
 //Method that estimates the distance (in meters) starting from the RSSI
 double PacketProcessor::getDistanceFromRSSI(double rssi) {
-	double rssiAtOneMeter = -52;
-	double d = pow(10, (rssiAtOneMeter - rssi) / 20);
+	double rssiAtOneMeter = -55;
+	double d = pow(10, (rssiAtOneMeter - rssi) / 22);
 	return d;
 }
 
@@ -91,7 +91,7 @@ void PacketProcessor::process() {
 				//Count how many ESPs have received this packet (this hash)
 				mysqlx::RowResult hashCount = packetTable.select("count(DISTINCT(esp_id))").where("hash=:current_hash AND to_be_deleted = 0").bind("current_hash", current_hash).execute();
 				row = hashCount.fetchOne();
-				uint32_t counter = (uint32_t)row[0];
+				int counter = row[0];
 
 				if (counter >= esp_number) { //floor(esp_number / 2) + 1) { //the packet has been received by at least 3 ESPs (Note: change this value in debug/testing)
 					uint64_t average_timestamp = 0;
