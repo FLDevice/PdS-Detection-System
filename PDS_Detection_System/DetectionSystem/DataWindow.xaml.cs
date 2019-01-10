@@ -40,6 +40,8 @@ namespace DetectionSystem
         public static TextBox output_box;
 
         protected bool is_running = false;
+        protected bool pipe_thread_stop = false;
+
 
 
         public DataWindow(string args, string fileN)
@@ -55,24 +57,28 @@ namespace DetectionSystem
             /*** Pipe handle Function ***/
             Thread thread = new Thread(new ThreadStart(PipeSyncFunction));
             thread.Start();
-            
+            MySqlCommand cmm = null;
             try
             {
                 DBconnection = new MySqlConnection();
                 DBconnection.ConnectionString = "server=localhost; database=pds_db; uid=pds_user; pwd=password";
                 DBconnection.Open();
-                MySqlCommand cmm = new MySqlCommand("select count(*) from devices", DBconnection);
+                cmm = new MySqlCommand("select count(*) from devices", DBconnection);
                 MySqlDataReader r = cmm.ExecuteReader();
                 while (r.Read())
                 {
                     output_box.AppendText("" + r[0]);
                 }
+                cmm.Dispose();
             }
             catch (Exception e)
             {
                 output_box.AppendText(e.Message + "\n");
                 output_box.ScrollToEnd();
+                cmm.Dispose();
             }
+
+            
 
             /*** BASIC COLUMN CHART ***/
             SeriesCollection = new SeriesCollection
@@ -83,16 +89,16 @@ namespace DetectionSystem
                     Values = new ChartValues<double> { 10, 50, 39, 50 }
                 }
             };
-
+            /*
             //adding series will update and animate the chart automatically
             SeriesCollection.Add(new ColumnSeries
             {
                 Title = "2016",
                 Values = new ChartValues<double> { 11, 56, 42 }
             });
-
+            */
             //also adding values updates and animates the chart automatically
-            SeriesCollection[1].Values.Add(48d);
+            //SeriesCollection[1].Values.Add(48d);
 
             Labels = new[] { "Maria", "Susan", "Charles", "Frida" };
             Formatter = value => value.ToString("N");
@@ -151,6 +157,7 @@ namespace DetectionSystem
         /** Kill TCPServer if the main window is terminating */
         public void OnWindowClosing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            pipe_thread_stop = true;
             if (is_running)
             {
                 // if already terminated do nothing
@@ -159,6 +166,7 @@ namespace DetectionSystem
                 TCPServer.Kill();
                 TCPServer.WaitForExit();
             }
+            DBconnection.Close();
         }
         
 
@@ -174,7 +182,7 @@ namespace DetectionSystem
 
         public void PipeSyncFunction() {
             try{
-                while (true)
+                while (!pipe_thread_stop)
                 {
                     using (var ServerPipe = new NamedPipeServerStream(PIPENAME))
                     {
@@ -184,6 +192,7 @@ namespace DetectionSystem
                         while (reader.Peek() != -1)
                         {
                             WriteOnTextBox((char)reader.Read() + "");
+                            //TODO Switch messaggi server
                         }
 
                         if (ServerPipe.IsConnected)
@@ -206,10 +215,39 @@ namespace DetectionSystem
             });
         }
 
-        private void GoToMapClick(object sender, RoutedEventArgs e)
-        {
-            MapWindow mapWin = new MapWindow();
-            mapWin.Show();
+
+        private void Update_chart_Click(object sender, RoutedEventArgs e) {
+            string timestart = "2019-01-08 12:15:50";
+            string timestop = "2019-01-08 12:55:50";
+            //string granularity = "";
+            MySqlCommand cmm = null;
+            try {
+                /*
+                cmm = new MySqlCommand("SELECT COUNT(DISTINCT mac) FROM devices WHERE timestamp BETWEEN '"
+                                                    +timestart+"' AND '"+timestop+"'", DBconnection);
+
+               */
+
+                cmm = new MySqlCommand("SELECT (unix_timestamp(timestamp) - unix_timestamp(timestamp)%1) groupTime, count(*)"
+                                                    + " FROM devices WHERE timestamp BETWEEN '"+ timestart + "' AND '" + timestop + "'"
+                                                    + " GROUP BY groupTime", DBconnection);
+
+
+                MySqlDataReader r = cmm.ExecuteReader();
+                SeriesCollection[0].Values.Clear();
+                while (r.Read())
+                {
+                    output_box.AppendText("" + r[1]);
+                    SeriesCollection[0].Values.Add(Convert.ToDouble(r[1]));
+                }
+                cmm.Dispose();
+                //SeriesCollection[1].Values = new ChartValues<double> { 11, 56, 42 };
+
+            } catch(Exception ex){
+                cmm.Dispose();
+                output_box.AppendText("" + ex.Message);
+            }
         }
+
     }
 }
