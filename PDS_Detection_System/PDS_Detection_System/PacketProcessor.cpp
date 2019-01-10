@@ -12,8 +12,8 @@ PacketProcessor::PacketProcessor(int count)
 
 //Method that estimates the distance (in meters) starting from the RSSI
 double PacketProcessor::getDistanceFromRSSI(double rssi) {
-	double rssiAtOneMeter = -55;
-	double d = pow(10, (rssiAtOneMeter - rssi) / 22);
+	double rssiAtOneMeter = -52;
+	double d = pow(10, (rssiAtOneMeter - rssi) / 20);
 	return d;
 }
 
@@ -39,7 +39,7 @@ double PacketProcessor::meanSquareError(const column_vector& m) {
 }
 
 //Method that finds the min (x,y) of the function meanSquareError ==> the (x,y) point will be the position of the device
-void PacketProcessor::trilaterate(int * pos_x, int * pos_y) {
+void PacketProcessor::trilaterate(double * pos_x, double * pos_y) {
 
 	try {
 		column_vector starting_point = { 0, 0 };
@@ -61,8 +61,8 @@ void PacketProcessor::trilaterate(int * pos_x, int * pos_y) {
 
 void PacketProcessor::process() {
 
-	int pos_x = -1;
-	int pos_y = -1;
+	double pos_x = -1;
+	double pos_y = -1;
 
 	x.clear();
 	y.clear();

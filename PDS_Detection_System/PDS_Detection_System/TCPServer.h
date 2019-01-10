@@ -137,6 +137,7 @@ class TCPServer {
 
 protected:
 
+	const wchar_t* PIPENAME = TEXT("\\\\.\\pipe\\pds_detection_system");
 	const int FIRST_READY_PORT = 3011;
 	const char INIT_MSG_H[5] = "INIT";
 	const char READY_MSG_H[6] = "READY";
@@ -158,6 +159,7 @@ protected:
 	// thread-safe queue to store esp32 sniffed packets
 	BlockingQueue<ProbePacket> pp_vector;
 
+	HANDLE namedPipe;
 	WSADATA wsadata;
 
 	// sockets
@@ -179,6 +181,10 @@ public:
 	TCPServer(long int espn, std::vector<long int> vec);
 
 private:
+
+	/** connects to the pipe created by the GUI application, may throw exception */
+	void TCPS_pipe_send(const char* message);
+
 	/** initialize winsock, may throw exception */
 	void TCPS_initialize();
 

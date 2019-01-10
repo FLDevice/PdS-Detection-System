@@ -24,8 +24,10 @@ namespace DetectionSystem
         {
             InitializeComponent();
             Home homepage = new Home();
-            Closing += homepage.OnWindowClosing;
             Content = homepage;
+            SizeToContent = SizeToContent.WidthAndHeight;
+            ResizeMode = ResizeMode.CanMinimize;
         }
+        
     }
 }

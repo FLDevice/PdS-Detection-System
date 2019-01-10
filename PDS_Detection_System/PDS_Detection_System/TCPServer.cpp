@@ -7,6 +7,13 @@ std::vector<double> d;
 */
 TCPServer::TCPServer(long int espn, std::vector<long int> vec) {
 	std::cout << " === TCPServer version 0.5 ===" << std::endl;
+	try {
+		TCPS_pipe_send("TCPServer");
+	}
+	catch (std::exception& e) {
+		std::cout << e.what() << std::endl;
+		throw;
+	}
 
 	setupDB();
 
@@ -15,7 +22,6 @@ TCPServer::TCPServer(long int espn, std::vector<long int> vec) {
 		try {
 		
 			esp_number = espn;
-
 			if (esp_number > 0 && esp_number <= MAX_ESP32_NUM)
 				break;
 			else {
@@ -87,6 +93,23 @@ TCPServer::TCPServer(long int espn, std::vector<long int> vec) {
 			if (!retry) throw;
 		}
 	}
+}
+
+void TCPServer::TCPS_pipe_send(const char* message) {
+
+	namedPipe = CreateFile(PIPENAME, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+	if (namedPipe == INVALID_HANDLE_VALUE) {
+		throw std::exception("couldn't open pipe");
+	}
+
+	char mybuffer[10];
+	DWORD bytesWritten;
+	strcpy(mybuffer, message);
+	BOOL r = WriteFile(namedPipe, mybuffer, strlen(mybuffer), &bytesWritten, NULL);
+	if (bytesWritten != strlen(mybuffer)) {
+		throw std::exception("failed writing on pipe");
+	}
+	CloseHandle(namedPipe);
 }
 
 void TCPServer::TCPS_initialize() {
@@ -562,8 +585,8 @@ void TCPServer::storePackets(int count, int esp_id, char* recvbuf) {
 				ProbePacket pp;
 				memcpy(&pp, recvbuf + (i*PACKET_SIZE), PACKET_SIZE);
 				pp_vector.push(pp);
-				printf("%d \t", i);
-				pp.print(); // MODIFIED
+				//printf("%d \t", i);
+				//pp.print(); // MODIFIED
 				pp.storeInDB(packetTable, time_since_last_update, esp_id);
 			}
 		}

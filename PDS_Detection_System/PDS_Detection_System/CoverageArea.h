@@ -12,8 +12,8 @@
 
 struct Point
 {
-	int x;
-	int y;
+	double x;
+	double y;
 };
 
 class CoverageArea
@@ -28,6 +28,6 @@ private:
 public:
 	CoverageArea();
 
-	bool isInside(int x, int y);
+	bool isInside(double x, double y);
 };
 
