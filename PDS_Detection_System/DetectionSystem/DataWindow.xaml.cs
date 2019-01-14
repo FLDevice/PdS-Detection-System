@@ -55,6 +55,14 @@ namespace DetectionSystem
             StartServer();
 
             /*** Pipe handle Function ***/
+
+            /*
+             * 1. Crea NamedPipeServerStream qui
+             * 2. Chiama BeginWaitForConnection(AsyncCallback, Object)
+             * 3. Alla chiusura della finestra chiudi la Pipe
+             * 
+             */
+
             Thread thread = new Thread(new ThreadStart(PipeSyncFunction));
             thread.Start();
             MySqlCommand cmm = null;
@@ -217,8 +225,8 @@ namespace DetectionSystem
 
 
         private void Update_chart_Click(object sender, RoutedEventArgs e) {
-            string timestart = "2019-01-08 12:15:50";
-            string timestop = "2019-01-08 12:55:50";
+            string timestart = "2019-01-14 15:50:50";
+            string timestop = "2019-01-14 16:55:50";
             //string granularity = "";
             MySqlCommand cmm = null;
             try {

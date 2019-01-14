@@ -245,7 +245,7 @@ void TCPServer::TCPS_ask_participation(std::vector<long int> vec) {
 
 		// Assign to a thread the job to handle a new socket for ready packets.
 		try {
-			threads[i] = std::thread(&TCPServer::TCPS_ready_channel, this, i);
+			threads[i/2] = std::thread(&TCPServer::TCPS_ready_channel, this, i/2);
 		}
 		catch (std::exception& e) {
 			std::cout << e.what() << std::endl;
@@ -301,9 +301,9 @@ void TCPServer::TCPS_ready_channel(int esp_id) {
 			char recvbuf[5];
 			int res = 0;
 			
-			for (int i = 0; i < 5; i = i + res)
+			for (int i = 0; i < 5; i = i + res){
 				res = recv(c_sock, recvbuf + i, 5 - i, 0);
-
+			}
 
 			if (res > 0) {
 				// if it actually is a READY message
