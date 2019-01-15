@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
         xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
         xmlns:local="clr-namespace:DetectionSystem"
         mc:Ignorable="d"
@@ -68,6 +69,14 @@
                 </lvc:CartesianChart.AxisX>
                 <Button Content="Go to Map" HorizontalAlignment="Left" Margin="415,168,0,0" VerticalAlignment="Top" Width="75" Click="GoToMapClick"/>
             </lvc:CartesianChart>
+
+            <xctk:DateTimePicker Name="StartTimePicker" Margin="540,271,103,195"
+                                 Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss"/>
+            <xctk:DateTimePicker Name="StopTimePicker" Margin="540,314,103,152"
+                                 Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss"/>
+            <xctk:IntegerUpDown Name="GranularityPicker" Margin="540,357,103,109"
+                                Minimum="1" Value="1"
+                                />
         </Grid>
 
         <Grid.Background>

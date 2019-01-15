@@ -86,7 +86,7 @@ namespace DetectionSystem
                 cmm.Dispose();
             }
 
-            
+       
 
             /*** BASIC COLUMN CHART ***/
             SeriesCollection = new SeriesCollection
@@ -225,8 +225,18 @@ namespace DetectionSystem
 
 
         private void Update_chart_Click(object sender, RoutedEventArgs e) {
-            string timestart = "2019-01-14 15:50:50";
-            string timestop = "2019-01-14 16:55:50";
+
+            string timestart = StartTimePicker.Text;
+            string timestop = StopTimePicker.Text;
+            long granularity = Convert.ToInt64(GranularityPicker.Text);
+
+            WriteOnTextBox(timestart);
+
+
+
+            /*
+                        string timestart = "2019-01-14 15:50:50";
+                        string timestop = "2019-01-14 16:55:50";*/
             //string granularity = "";
             MySqlCommand cmm = null;
             try {
@@ -236,7 +246,7 @@ namespace DetectionSystem
 
                */
 
-                cmm = new MySqlCommand("SELECT (unix_timestamp(timestamp) - unix_timestamp(timestamp)%1) groupTime, count(*)"
+                cmm = new MySqlCommand("SELECT (unix_timestamp(timestamp) - unix_timestamp(timestamp)%" + granularity + ") groupTime, count(*)"
                                                     + " FROM devices WHERE timestamp BETWEEN '"+ timestart + "' AND '" + timestop + "'"
                                                     + " GROUP BY groupTime", DBconnection);
 
