@@ -40,7 +40,7 @@ namespace DetectionSystem
         public static TextBox output_box;
 
         protected bool is_running = false;
-        protected bool pipe_thread_stop = false;
+        //protected bool pipe_thread_stop = false;
 
 
 
@@ -54,8 +54,10 @@ namespace DetectionSystem
             output_box = (TextBox)this.FindName("stdout2");
             StartServer();
 
-            /*** Pipe handle Function ***/
-
+            /*** Pipe handle Function ***/            
+            ServerPipe = new NamedPipeServerStream(PIPENAME, PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Message, PipeOptions.Asynchronous);
+            ServerPipe.BeginWaitForConnection(new AsyncCallback(PipeASyncFunction), this);
+            
             /*
              * 1. Crea NamedPipeServerStream qui
              * 2. Chiama BeginWaitForConnection(AsyncCallback, Object)
@@ -63,8 +65,6 @@ namespace DetectionSystem
              * 
              */
 
-            Thread thread = new Thread(new ThreadStart(PipeSyncFunction));
-            thread.Start();
             MySqlCommand cmm = null;
             try
             {
@@ -161,11 +161,10 @@ namespace DetectionSystem
         }
 
 
-
         /** Kill TCPServer if the main window is terminating */
         public void OnWindowClosing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            pipe_thread_stop = true;
+            //pipe_thread_stop = true;
             if (is_running)
             {
                 // if already terminated do nothing
@@ -175,6 +174,8 @@ namespace DetectionSystem
                 TCPServer.WaitForExit();
             }
             DBconnection.Close();
+            if(ServerPipe.IsConnected)
+                ServerPipe.Close();
         }
         
 
@@ -188,33 +189,33 @@ namespace DetectionSystem
         public ChartValues<ObservablePoint> ValuesC { get; set; }
 
 
-        public void PipeSyncFunction() {
-            try{
-                while (!pipe_thread_stop)
-                {
-                    using (var ServerPipe = new NamedPipeServerStream(PIPENAME))
-                    {
-                        ServerPipe.WaitForConnection();
-                        StreamReader reader = new StreamReader(ServerPipe);
-                        //WriteOnTextBox("Reading from pipe: ");
-                        while (reader.Peek() != -1)
-                        {
-                            WriteOnTextBox((char)reader.Read() + "");
-                            //TODO Switch messaggi server
-                        }
-
-                        if (ServerPipe.IsConnected)
-                        {
-                            // must disconnect 
-                            ServerPipe.Disconnect();
-                        }
-                    }
-                }
-            }
-            catch (Exception exception)
+        private void PipeASyncFunction(IAsyncResult result) {
+            try
             {
-                WriteOnTextBox(exception.Message);
+                ServerPipe.EndWaitForConnection(result);
+                StreamReader reader = new StreamReader(ServerPipe);
+
+                //WriteOnTextBox("Reading from pipe: ");
+                while (reader.Peek() != -1)
+                {
+                    WriteOnTextBox((char)reader.Read() + "");
+                    //TODO Switch messaggi server
+                }
+
+                // Kill original pipe and create new wait pipe  
+                ServerPipe.Close();
+                ServerPipe = null;
+                
+                // Recursively wait for the connection again and again....
+                ServerPipe = new NamedPipeServerStream(PIPENAME, PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Message, PipeOptions.Asynchronous);
+                ServerPipe.BeginWaitForConnection(new AsyncCallback(PipeASyncFunction), this);
             }
+            catch(Exception e )
+            {
+                Console.WriteLine(e.StackTrace);
+                return;
+            }
+            
         }
 
         public void WriteOnTextBox(string message) {
