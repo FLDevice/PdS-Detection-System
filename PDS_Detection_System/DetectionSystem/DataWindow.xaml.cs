@@ -19,14 +19,14 @@ using LiveCharts;
 using LiveCharts.Wpf;
 using LiveCharts.Defaults;
 using System.Threading;
-
+using System.ComponentModel;
 
 namespace DetectionSystem
 {
     /// <summary>
     /// Logica di interazione per DataWindow.xaml
     /// </summary>
-    public partial class DataWindow : Window
+    public partial class DataWindow : Window, INotifyPropertyChanged
     {
         private const string PIPENAME = "pds_detection_system";
 
@@ -38,10 +38,8 @@ namespace DetectionSystem
         private string args;
 
         public static TextBox output_box;
-
+        private string[] _LabelsDev;
         protected bool is_running = false;
-        //protected bool pipe_thread_stop = false;
-
 
 
         public DataWindow(string args, string fileN)
@@ -85,45 +83,31 @@ namespace DetectionSystem
                 output_box.ScrollToEnd();
                 cmm.Dispose();
             }
-
        
 
             /*** BASIC COLUMN CHART ***/
             SeriesCollection = new SeriesCollection
             {
-                new ColumnSeries
+                new LineSeries
                 {
-                    Title = "2015",
-                    Values = new ChartValues<double> { 10, 50, 39, 50 }
+                    Title = "Devices number",
+                    Values = new ChartValues<double> {}
                 }
             };
-            /*
-            //adding series will update and animate the chart automatically
-            SeriesCollection.Add(new ColumnSeries
-            {
-                Title = "2016",
-                Values = new ChartValues<double> { 11, 56, 42 }
-            });
-            */
-            //also adding values updates and animates the chart automatically
-            //SeriesCollection[1].Values.Add(48d);
-
-            Labels = new[] { "Maria", "Susan", "Charles", "Frida" };
-            Formatter = value => value.ToString("N");
-
-            DataContext = this;
 
             /*** SCATTER PLOT CHART ***/
+            /*
             var rand = new Random();
             ValuesA = new ChartValues<ObservablePoint>();
             ValuesB = new ChartValues<ObservablePoint>();
-            
+
 
             for (var i = 0; i < 20; i++)
             {
                 ValuesA.Add(new ObservablePoint(rand.NextDouble() * 10, rand.NextDouble() * 10));
                 ValuesB.Add(new ObservablePoint(rand.NextDouble() * 10, rand.NextDouble() * 10));
             }
+            */
         }
 
 
@@ -180,7 +164,14 @@ namespace DetectionSystem
         
 
         public SeriesCollection SeriesCollection { get; set; }
-        public string[] Labels { get; set; }
+        public string[] LabelsDev {
+            get { return _LabelsDev; }
+            set
+            {
+                _LabelsDev = value;
+                OnPropertyChanged("LabelsDev");
+            }
+        }
         public Func<double, string> Formatter { get; set; }
 
         /*** SCATTER PLOT ***/
@@ -231,14 +222,6 @@ namespace DetectionSystem
             string timestop = StopTimePicker.Text;
             long granularity = Convert.ToInt64(GranularityPicker.Text);
 
-            WriteOnTextBox(timestart);
-
-
-
-            /*
-                        string timestart = "2019-01-14 15:50:50";
-                        string timestop = "2019-01-14 16:55:50";*/
-            //string granularity = "";
             MySqlCommand cmm = null;
             try {
                 /*
@@ -249,22 +232,35 @@ namespace DetectionSystem
 
                 cmm = new MySqlCommand("SELECT (unix_timestamp(timestamp) - unix_timestamp(timestamp)%" + granularity + ") groupTime, count(*)"
                                                     + " FROM devices WHERE timestamp BETWEEN '"+ timestart + "' AND '" + timestop + "'"
-                                                    + " GROUP BY groupTime", DBconnection);
-
-
+                                                    + " GROUP BY groupTime", DBconnection);                
                 MySqlDataReader r = cmm.ExecuteReader();
+               
+                // Create structure and clear data
+                List<string> labs = new List<string>();
                 SeriesCollection[0].Values.Clear();
+                // Read content of SQL command execution and add data to the graph
                 while (r.Read())
                 {
                     output_box.AppendText("" + r[1]);
                     SeriesCollection[0].Values.Add(Convert.ToDouble(r[1]));
+                    labs.Add(TimeStampToDateTime(Convert.ToInt64(r[0])).ToString("HH:mm:ss"));
                 }
+                //Prepare labels
+                string[] ls = new string[labs.Count];
+                for(int i=0;i<labs.Count;i++) {
+                    ls[i] = labs[i];
+                }
+                LabelsDev = ls;
+                Formatter = value => value.ToString();
+                //Send data to the graph
+                DataContext = this;
                 cmm.Dispose();
-                //SeriesCollection[1].Values = new ChartValues<double> { 11, 56, 42 };
 
             } catch(Exception ex){
-                cmm.Dispose();
+                if(cmm != null)
+                    cmm.Dispose();
                 output_box.AppendText("" + ex.Message);
+                Console.WriteLine(ex.StackTrace);
             }
         }
 
@@ -272,6 +268,26 @@ namespace DetectionSystem
         {
             MapWindow mapWin = new MapWindow();
             mapWin.Show();
+        }
+        
+        /*
+         * Handle the modification to the data of the graph and send them to it 
+         */
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected virtual void OnPropertyChanged(string propertyName = null)
+        {
+            if (PropertyChanged != null)
+                PropertyChanged.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+                 
+        public static DateTime TimeStampToDateTime(double unixTimeStamp)
+        {
+            // Unix timestamp is seconds past epoch
+            System.DateTime dtDateTime = new DateTime(1970, 1, 1, 0, 0, 0, 0, System.DateTimeKind.Utc);
+            dtDateTime = dtDateTime.AddSeconds(unixTimeStamp).ToLocalTime();
+            return dtDateTime;
         }
     }
 }
