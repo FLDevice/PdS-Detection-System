@@ -75,10 +75,10 @@ namespace DetectionSystem
             selectQuery = "SELECT d.mac, d.x, d.y, d.timestamp "
                         + "FROM devices d "
                         + "JOIN( "
-                        + "SELECT mac, MAX(timestamp) timestamp "
+                        + "SELECT mac, MAX(timestamp) timestamp, MAX(dev_id) as max_id "
                         + "FROM devices "
                         + "GROUP BY mac "
-                        + ") x ON(x.mac = d.mac AND x.timestamp = d.timestamp) "
+                        + ") x ON(x.max_id = d.dev_id) "
                         + "WHERE UNIX_TIMESTAMP(d.timestamp) > UNIX_TIMESTAMP(NOW()) - 120 ";
 
             if(CheckMacAddress(macBox.Text))
@@ -97,7 +97,7 @@ namespace DetectionSystem
 
                     while (dataReader.Read())
                     {
-                        DrawDevice(dataReader.GetString(0), dataReader.GetInt32(1), dataReader.GetInt32(2));
+                        DrawDevice(dataReader.GetString(0), dataReader.GetDouble(1), dataReader.GetDouble(2));
                     }
                     
                     //close Data Reader
@@ -203,7 +203,7 @@ namespace DetectionSystem
             previouslyChecked = 0;
         }
 
-        private void DrawDevice(string deviceName, int left, int bottom)
+        private void DrawDevice(string deviceName, double left, double bottom)
         {
             // Create a red Ellipse.
             Ellipse myEllipse = new Ellipse();
@@ -277,9 +277,9 @@ namespace DetectionSystem
             Canvas.SetBottom(myEllipse, ScaleY(bottom));
         }
 
-        private int ScaleX(int value)
+        private double ScaleX(double value)
         {
-            int scaledValue;
+            double scaledValue;
             int width = Convert.ToInt32(mapOfDevices.Width);
 
             if (maxX - minX != 0)
@@ -290,9 +290,9 @@ namespace DetectionSystem
             return scaledValue;
         }
 
-        private int ScaleY(int value)
+        private double ScaleY(double value)
         {
-            int scaledValue;
+            double scaledValue;
             int height = Convert.ToInt32(mapOfDevices.Height);
 
             if (maxY - minY != 0)

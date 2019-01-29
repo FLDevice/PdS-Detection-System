@@ -22,7 +22,7 @@
         </TextBox>
 
         <Grid>
-            <lvc:CartesianChart Series="{Binding SeriesCollection}" LegendLocation="Left" Height="400" Width="500"
+            <lvc:CartesianChart Series="{Binding SeriesCollection}" LegendLocation="Top" Height="400" Width="500"
                                 VerticalAlignment="Bottom" Margin="20,40,20,20" HorizontalAlignment="Left"
                                 Name="devicesChart">
                 <lvc:CartesianChart.AxisX>

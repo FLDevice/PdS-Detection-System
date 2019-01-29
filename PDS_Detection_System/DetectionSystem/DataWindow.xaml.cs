@@ -239,11 +239,25 @@ namespace DetectionSystem
                 List<string> labs = new List<string>();
                 SeriesCollection[0].Values.Clear();
                 // Read content of SQL command execution and add data to the graph
-                while (r.Read())
-                {
-                    output_box.AppendText("" + r[1]);
-                    SeriesCollection[0].Values.Add(Convert.ToDouble(r[1]));
-                    labs.Add(TimeStampToDateTime(Convert.ToInt64(r[0])).ToString("HH:mm:ss"));
+                int n_counter = 0;
+                long previous_timestamp = 0;
+                while (r.Read()){
+                    if (n_counter == 0){
+                        previous_timestamp = Convert.ToInt64(r[0]);
+                        SeriesCollection[0].Values.Add(Convert.ToDouble(r[1]));
+                        labs.Add(TimeStampToDateTime(Convert.ToInt64(r[0])).ToString("HH:mm:ss"));
+                    }else{
+                        if ((Convert.ToInt64(r[0]) - previous_timestamp) != granularity){
+                            for (long i = granularity; i < (Convert.ToInt64(r[0]) - previous_timestamp); i+=granularity){
+                                SeriesCollection[0].Values.Add(Convert.ToDouble(0));
+                                labs.Add(TimeStampToDateTime(previous_timestamp + i).ToString("HH:mm:ss"));
+                            }
+                        }
+                        SeriesCollection[0].Values.Add(Convert.ToDouble(r[1]));
+                        labs.Add(TimeStampToDateTime(Convert.ToInt64(r[0])).ToString("HH:mm:ss"));
+                        previous_timestamp = Convert.ToInt64(r[0]);
+                    }
+                    n_counter++;
                 }
                 //Prepare labels
                 string[] ls = new string[labs.Count];

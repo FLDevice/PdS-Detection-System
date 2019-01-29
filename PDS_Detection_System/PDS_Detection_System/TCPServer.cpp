@@ -560,8 +560,8 @@ void TCPServer::setupDB()
 	create += quoted_name;
 	create += " (dev_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, ";
 	create += " mac VARCHAR(32) NOT NULL,";
-	create += " x INT NOT NULL,";
-	create += " y INT NOT NULL,";
+	create += " x FLOAT NOT NULL,";
+	create += " y FLOAT NOT NULL,";
 	create += " timestamp TIMESTAMP)";
 
 	session.sql(create).execute();
