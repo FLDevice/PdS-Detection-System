@@ -23,12 +23,12 @@ CoverageArea::CoverageArea()
 			}
 		}
 		catch (std::exception &err) {
-			std::cout << "The following error occurred: " << err.what() << std::endl;
+			//std::cout << "The following error occurred: " << err.what() << std::endl;
 			exit(1);
 		}
 	}
 	catch (std::exception &err) {
-		std::cout << "The database session could not be opened: " << err.what() << std::endl;
+		//std::cout << "The database session could not be opened: " << err.what() << std::endl;
 		exit(1);
 	}
 }

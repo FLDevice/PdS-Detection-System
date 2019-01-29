@@ -437,10 +437,8 @@ void TCPServer::TCPS_service(SOCKET client_socket) {
 				std::cout << "Bytes received: " << result << ", buffer contains:" << std::endl;
 				std::cout << "Buffer size: " << recvbuflen << std::endl;
 				std::cout << "Current Time: " << std::time(NULL) << ", passed since last update: " << esp_list[esp_id].get_update_interval() << std::endl; // ADDED
-
-																																						   // store and print them
+																													   // store and print them
 				storePackets(count, esp_id, recvbuf);
-
 
 				// notify an esp has sent its data
 				{
@@ -448,7 +446,6 @@ void TCPServer::TCPS_service(SOCKET client_socket) {
 					esp_to_wait--;
 					triang_cvar.notify_all();
 				}
-
 
 				// just send back a packet to the client as ack
 				int send_result = send(client_socket, recvbuf, PACKET_SIZE, 0);
@@ -584,9 +581,8 @@ void TCPServer::storePackets(int count, int esp_id, char* recvbuf) {
 			for (int i = 0; i < count; i++) {
 				ProbePacket pp;
 				memcpy(&pp, recvbuf + (i*PACKET_SIZE), PACKET_SIZE);
-				pp_vector.push(pp);
-				//printf("%d \t", i);
-				//pp.print(); // MODIFIED
+
+				//pp_vector.push(pp);
 				pp.storeInDB(packetTable, time_since_last_update, esp_id);
 			}
 		}
@@ -630,5 +626,7 @@ void TCPServer::TCPS_process_packets() {
 		}
 
 		pckt_rfn.process();
+
+		std::cout << "Finished processing packets " << std::endl;
 	}
 }
