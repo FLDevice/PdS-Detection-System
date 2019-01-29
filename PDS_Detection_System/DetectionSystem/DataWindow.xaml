@@ -3,10 +3,11 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
         xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
         xmlns:local="clr-namespace:DetectionSystem"
         mc:Ignorable="d"
-        Title="DataWindow" Height="Auto" Width="Auto">
+        Title="DataWindow" Height="850" Width="1400" ResizeMode="NoResize" WindowStartupLocation="CenterScreen">
     <Grid>
         <Label VerticalAlignment="Top" FontFamily="Courier New" 
             FontWeight="Bold" FontSize="18" Foreground="White" Margin="0,0,0,0">
@@ -21,14 +22,14 @@
         </TextBox>
 
         <Grid>
-            <lvc:CartesianChart Series="{Binding SeriesCollection}" LegendLocation="Left" Height="400" Width="500"
+            <lvc:CartesianChart Series="{Binding SeriesCollection}" LegendLocation="Top" Height="400" Width="500"
                                 VerticalAlignment="Bottom" Margin="20,40,20,20" HorizontalAlignment="Left"
-                                Name="basicColumn">
+                                Name="devicesChart">
                 <lvc:CartesianChart.AxisX>
-                    <lvc:Axis Title="Salesman" Labels="{Binding Labels}"></lvc:Axis>
+                    <lvc:Axis Title="Time" Labels="{Binding LabelsDev}"></lvc:Axis>
                 </lvc:CartesianChart.AxisX>
                 <lvc:CartesianChart.AxisY>
-                    <lvc:Axis Title="Sold Apps" LabelFormatter="{Binding Formatter}"></lvc:Axis>
+                    <lvc:Axis Title="Devices" LabelFormatter="{Binding Formatter}"></lvc:Axis>
                 </lvc:CartesianChart.AxisY>
             </lvc:CartesianChart>
 
@@ -36,7 +37,7 @@
                       Foreground="Black"
                      FontFamily="Courier New" FontSize="12"
                      VerticalAlignment="Top" HorizontalAlignment="Left"
-                     Margin="140,220,20,10" Click="Update_chart_Click">
+                     Margin="615,610,20,10" Click="Update_chart_Click">
                 Update
             </Button>
 
@@ -68,6 +69,26 @@
                 </lvc:CartesianChart.AxisX>
                 <Button Content="Go to Map" HorizontalAlignment="Left" Margin="415,168,0,0" VerticalAlignment="Top" Width="75" Click="GoToMapClick"/>
             </lvc:CartesianChart>
+            <Grid>
+                <Label Grid.Column="0" Grid.Row="0"  Width ="150" VerticalAlignment="Top" HorizontalAlignment="Left" FontFamily="Courier New" 
+                FontWeight="Bold" FontSize="12" Foreground="White" Margin="590,400,100,200">
+                    Start Time:
+                </Label>
+                <xctk:DateTimePicker Name="StartTimePicker" Margin="50,270,100,195"
+                                     Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss" Height="35" Width="155"/>
+                <Label Grid.Column="0" Grid.Row="0"  Width ="150" VerticalAlignment="Top" HorizontalAlignment="Left" FontFamily="Courier New" 
+                FontWeight="Bold" FontSize="12" Foreground="White" Margin="590,465,100,200">
+                    End Time:
+                </Label>
+                <xctk:DateTimePicker Name="StopTimePicker" Margin="50,345,100,152"
+                                     Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss" Height="35" Width="155"/>
+                <Label Grid.Column="0" Grid.Row="0"  Width ="150" VerticalAlignment="Top" HorizontalAlignment="Left" FontFamily="Courier New" 
+                FontWeight="Bold" FontSize="12" Foreground="White" Margin="590,525,100,200">
+                    Granularity (s):
+                </Label>
+                <xctk:IntegerUpDown Name="GranularityPicker" Margin="50,420,100,100"
+                                    Minimum="1" Value="1"  Height="35" Width="55" />
+            </Grid>
         </Grid>
 
         <Grid.Background>

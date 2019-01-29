@@ -19,14 +19,14 @@ using LiveCharts;
 using LiveCharts.Wpf;
 using LiveCharts.Defaults;
 using System.Threading;
-
+using System.ComponentModel;
 
 namespace DetectionSystem
 {
     /// <summary>
     /// Logica di interazione per DataWindow.xaml
     /// </summary>
-    public partial class DataWindow : Window
+    public partial class DataWindow : Window, INotifyPropertyChanged
     {
         private const string PIPENAME = "pds_detection_system";
 
@@ -38,10 +38,8 @@ namespace DetectionSystem
         private string args;
 
         public static TextBox output_box;
-
+        private string[] _LabelsDev;
         protected bool is_running = false;
-        protected bool pipe_thread_stop = false;
-
 
 
         public DataWindow(string args, string fileN)
@@ -54,8 +52,10 @@ namespace DetectionSystem
             output_box = (TextBox)this.FindName("stdout2");
             StartServer();
 
-            /*** Pipe handle Function ***/
-
+            /*** Pipe handle Function ***/            
+            ServerPipe = new NamedPipeServerStream(PIPENAME, PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Message, PipeOptions.Asynchronous);
+            ServerPipe.BeginWaitForConnection(new AsyncCallback(PipeASyncFunction), this);
+            
             /*
              * 1. Crea NamedPipeServerStream qui
              * 2. Chiama BeginWaitForConnection(AsyncCallback, Object)
@@ -63,8 +63,6 @@ namespace DetectionSystem
              * 
              */
 
-            Thread thread = new Thread(new ThreadStart(PipeSyncFunction));
-            thread.Start();
             MySqlCommand cmm = null;
             try
             {
@@ -85,45 +83,31 @@ namespace DetectionSystem
                 output_box.ScrollToEnd();
                 cmm.Dispose();
             }
-
-            
+       
 
             /*** BASIC COLUMN CHART ***/
             SeriesCollection = new SeriesCollection
             {
-                new ColumnSeries
+                new LineSeries
                 {
-                    Title = "2015",
-                    Values = new ChartValues<double> { 10, 50, 39, 50 }
+                    Title = "Devices number",
+                    Values = new ChartValues<double> {}
                 }
             };
-            /*
-            //adding series will update and animate the chart automatically
-            SeriesCollection.Add(new ColumnSeries
-            {
-                Title = "2016",
-                Values = new ChartValues<double> { 11, 56, 42 }
-            });
-            */
-            //also adding values updates and animates the chart automatically
-            //SeriesCollection[1].Values.Add(48d);
-
-            Labels = new[] { "Maria", "Susan", "Charles", "Frida" };
-            Formatter = value => value.ToString("N");
-
-            DataContext = this;
 
             /*** SCATTER PLOT CHART ***/
+            /*
             var rand = new Random();
             ValuesA = new ChartValues<ObservablePoint>();
             ValuesB = new ChartValues<ObservablePoint>();
-            
+
 
             for (var i = 0; i < 20; i++)
             {
                 ValuesA.Add(new ObservablePoint(rand.NextDouble() * 10, rand.NextDouble() * 10));
                 ValuesB.Add(new ObservablePoint(rand.NextDouble() * 10, rand.NextDouble() * 10));
             }
+            */
         }
 
 
@@ -161,11 +145,10 @@ namespace DetectionSystem
         }
 
 
-
         /** Kill TCPServer if the main window is terminating */
         public void OnWindowClosing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            pipe_thread_stop = true;
+            //pipe_thread_stop = true;
             if (is_running)
             {
                 // if already terminated do nothing
@@ -175,11 +158,20 @@ namespace DetectionSystem
                 TCPServer.WaitForExit();
             }
             DBconnection.Close();
+            if(ServerPipe.IsConnected)
+                ServerPipe.Close();
         }
         
 
         public SeriesCollection SeriesCollection { get; set; }
-        public string[] Labels { get; set; }
+        public string[] LabelsDev {
+            get { return _LabelsDev; }
+            set
+            {
+                _LabelsDev = value;
+                OnPropertyChanged("LabelsDev");
+            }
+        }
         public Func<double, string> Formatter { get; set; }
 
         /*** SCATTER PLOT ***/
@@ -188,33 +180,33 @@ namespace DetectionSystem
         public ChartValues<ObservablePoint> ValuesC { get; set; }
 
 
-        public void PipeSyncFunction() {
-            try{
-                while (!pipe_thread_stop)
-                {
-                    using (var ServerPipe = new NamedPipeServerStream(PIPENAME))
-                    {
-                        ServerPipe.WaitForConnection();
-                        StreamReader reader = new StreamReader(ServerPipe);
-                        //WriteOnTextBox("Reading from pipe: ");
-                        while (reader.Peek() != -1)
-                        {
-                            WriteOnTextBox((char)reader.Read() + "");
-                            //TODO Switch messaggi server
-                        }
-
-                        if (ServerPipe.IsConnected)
-                        {
-                            // must disconnect 
-                            ServerPipe.Disconnect();
-                        }
-                    }
-                }
-            }
-            catch (Exception exception)
+        private void PipeASyncFunction(IAsyncResult result) {
+            try
             {
-                WriteOnTextBox(exception.Message);
+                ServerPipe.EndWaitForConnection(result);
+                StreamReader reader = new StreamReader(ServerPipe);
+
+                //WriteOnTextBox("Reading from pipe: ");
+                while (reader.Peek() != -1)
+                {
+                    WriteOnTextBox((char)reader.Read() + "");
+                    //TODO Switch messaggi server
+                }
+
+                // Kill original pipe and create new wait pipe  
+                ServerPipe.Close();
+                ServerPipe = null;
+                
+                // Recursively wait for the connection again and again....
+                ServerPipe = new NamedPipeServerStream(PIPENAME, PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Message, PipeOptions.Asynchronous);
+                ServerPipe.BeginWaitForConnection(new AsyncCallback(PipeASyncFunction), this);
             }
+            catch(Exception e )
+            {
+                Console.WriteLine(e.StackTrace);
+                return;
+            }
+            
         }
 
         public void WriteOnTextBox(string message) {
@@ -225,9 +217,11 @@ namespace DetectionSystem
 
 
         private void Update_chart_Click(object sender, RoutedEventArgs e) {
-            string timestart = "2019-01-14 15:50:50";
-            string timestop = "2019-01-14 16:55:50";
-            //string granularity = "";
+
+            string timestart = StartTimePicker.Text;
+            string timestop = StopTimePicker.Text;
+            long granularity = Convert.ToInt64(GranularityPicker.Text);
+
             MySqlCommand cmm = null;
             try {
                 /*
@@ -236,24 +230,51 @@ namespace DetectionSystem
 
                */
 
-                cmm = new MySqlCommand("SELECT (unix_timestamp(timestamp) - unix_timestamp(timestamp)%1) groupTime, count(*)"
+                cmm = new MySqlCommand("SELECT (unix_timestamp(timestamp) - unix_timestamp(timestamp)%" + granularity + ") groupTime, count(*)"
                                                     + " FROM devices WHERE timestamp BETWEEN '"+ timestart + "' AND '" + timestop + "'"
-                                                    + " GROUP BY groupTime", DBconnection);
-
-
+                                                    + " GROUP BY groupTime", DBconnection);                
                 MySqlDataReader r = cmm.ExecuteReader();
+               
+                // Create structure and clear data
+                List<string> labs = new List<string>();
                 SeriesCollection[0].Values.Clear();
-                while (r.Read())
-                {
-                    output_box.AppendText("" + r[1]);
-                    SeriesCollection[0].Values.Add(Convert.ToDouble(r[1]));
+                // Read content of SQL command execution and add data to the graph
+                int n_counter = 0;
+                long previous_timestamp = 0;
+                while (r.Read()){
+                    if (n_counter == 0){
+                        previous_timestamp = Convert.ToInt64(r[0]);
+                        SeriesCollection[0].Values.Add(Convert.ToDouble(r[1]));
+                        labs.Add(TimeStampToDateTime(Convert.ToInt64(r[0])).ToString("HH:mm:ss"));
+                    }else{
+                        if ((Convert.ToInt64(r[0]) - previous_timestamp) != granularity){
+                            for (long i = granularity; i < (Convert.ToInt64(r[0]) - previous_timestamp); i+=granularity){
+                                SeriesCollection[0].Values.Add(Convert.ToDouble(0));
+                                labs.Add(TimeStampToDateTime(previous_timestamp + i).ToString("HH:mm:ss"));
+                            }
+                        }
+                        SeriesCollection[0].Values.Add(Convert.ToDouble(r[1]));
+                        labs.Add(TimeStampToDateTime(Convert.ToInt64(r[0])).ToString("HH:mm:ss"));
+                        previous_timestamp = Convert.ToInt64(r[0]);
+                    }
+                    n_counter++;
                 }
+                //Prepare labels
+                string[] ls = new string[labs.Count];
+                for(int i=0;i<labs.Count;i++) {
+                    ls[i] = labs[i];
+                }
+                LabelsDev = ls;
+                Formatter = value => value.ToString();
+                //Send data to the graph
+                DataContext = this;
                 cmm.Dispose();
-                //SeriesCollection[1].Values = new ChartValues<double> { 11, 56, 42 };
 
             } catch(Exception ex){
-                cmm.Dispose();
+                if(cmm != null)
+                    cmm.Dispose();
                 output_box.AppendText("" + ex.Message);
+                Console.WriteLine(ex.StackTrace);
             }
         }
 
@@ -261,6 +282,26 @@ namespace DetectionSystem
         {
             MapWindow mapWin = new MapWindow();
             mapWin.Show();
+        }
+        
+        /*
+         * Handle the modification to the data of the graph and send them to it 
+         */
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected virtual void OnPropertyChanged(string propertyName = null)
+        {
+            if (PropertyChanged != null)
+                PropertyChanged.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+                 
+        public static DateTime TimeStampToDateTime(double unixTimeStamp)
+        {
+            // Unix timestamp is seconds past epoch
+            System.DateTime dtDateTime = new DateTime(1970, 1, 1, 0, 0, 0, 0, System.DateTimeKind.Utc);
+            dtDateTime = dtDateTime.AddSeconds(unixTimeStamp).ToLocalTime();
+            return dtDateTime;
         }
     }
 }

@@ -93,7 +93,7 @@ void PacketProcessor::process() {
 				row = hashCount.fetchOne();
 				int counter = row[0];
 
-				if (counter >= esp_number) { //floor(esp_number / 2) + 1) { //the packet has been received by at least 3 ESPs (Note: change this value in debug/testing)
+				if (counter >= esp_number-1) { //floor(esp_number / 2) + 1) { //the packet has been received by at least 3 ESPs (Note: change this value in debug/testing)
 					uint64_t average_timestamp = 0;
 					int count = 0;
 
