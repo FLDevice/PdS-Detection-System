@@ -29,7 +29,11 @@
                     <lvc:Axis Title="Time" Labels="{Binding LabelsDev}"></lvc:Axis>
                 </lvc:CartesianChart.AxisX>
                 <lvc:CartesianChart.AxisY>
-                    <lvc:Axis Title="Devices" LabelFormatter="{Binding Formatter}"></lvc:Axis>
+                    <lvc:Axis MinValue="0" Title="Devices" LabelFormatter="{Binding Formatter}">
+                        <lvc:Axis.Separator>
+                            <lvc:Separator IsEnabled="True" Step="1"></lvc:Separator>
+                        </lvc:Axis.Separator>
+                    </lvc:Axis>
                 </lvc:CartesianChart.AxisY>
             </lvc:CartesianChart>
 

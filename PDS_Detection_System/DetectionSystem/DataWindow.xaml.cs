@@ -254,7 +254,8 @@ namespace DetectionSystem
                             }
                         }
                         SeriesCollection[0].Values.Add(Convert.ToDouble(r[1]));
-                        labs.Add(TimeStampToDateTime(Convert.ToInt64(r[0])).ToString("HH:mm:ss"));
+                        DateTime date = TimeStampToDateTime(Convert.ToInt64(r[0]));
+                        labs.Add(date.ToShortDateString()+"\n  "+date.ToString("HH:mm:ss"));
                         previous_timestamp = Convert.ToInt64(r[0]);
                     }
                     n_counter++;
