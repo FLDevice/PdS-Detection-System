@@ -21,33 +21,72 @@
                     IsReadOnly="True">
         </TextBox>
 
-        <Grid>
-            <lvc:CartesianChart Series="{Binding SeriesCollection}" LegendLocation="Top" Height="400" Width="500"
-                                VerticalAlignment="Bottom" Margin="20,40,20,20" HorizontalAlignment="Left"
-                                Name="devicesChart">
-                <lvc:CartesianChart.AxisX>
-                    <lvc:Axis Title="Time" Labels="{Binding LabelsDev}"></lvc:Axis>
-                </lvc:CartesianChart.AxisX>
-                <lvc:CartesianChart.AxisY>
-                    <lvc:Axis MinValue="0" Title="Devices" LabelFormatter="{Binding Formatter}">
-                        <lvc:Axis.Separator>
-                            <lvc:Separator IsEnabled="True" Step="1"></lvc:Separator>
-                        </lvc:Axis.Separator>
-                    </lvc:Axis>
-                </lvc:CartesianChart.AxisY>
-            </lvc:CartesianChart>
+        <TabControl HorizontalAlignment="Left" Height="450" Width="700" Margin="24,325,0,0" >
+            <TabItem Header="Devices's map" >
+                <Grid Background="Black" >
+                    <lvc:CartesianChart Series="{Binding SeriesCollection}" LegendLocation="Top" Height="400" Width="500"
+                                HorizontalAlignment="Left"
+                                Name="devicesChart" Margin="0,0,0,0">
+                        <lvc:CartesianChart.AxisX>
+                            <lvc:Axis Title="Time" Labels="{Binding LabelsDev}"></lvc:Axis>
+                        </lvc:CartesianChart.AxisX>
+                        <lvc:CartesianChart.AxisY>
+                            <lvc:Axis MinValue="0" Title="Devices" LabelFormatter="{Binding Formatter}">
+                                <lvc:Axis.Separator>
+                                    <lvc:Separator IsEnabled="True" Step="1"></lvc:Separator>
+                                </lvc:Axis.Separator>
+                            </lvc:Axis>
+                        </lvc:CartesianChart.AxisY>
+                    </lvc:CartesianChart>
 
-            <Button Name="update_chart" Grid.Column="0" Grid.Row="0" Width ="100" Height="20"
-                      Foreground="Black"
-                     FontFamily="Courier New" FontSize="12"
-                     VerticalAlignment="Top" HorizontalAlignment="Left"
-                     Margin="615,610,20,10" Click="Update_chart_Click">
-                Update
-            </Button>
+                    <Grid Width="200" Height="300" Margin="510,60,30,60">
+                        <Label Grid.Column="0" Grid.Row="0"  Width ="150" VerticalAlignment="Top" HorizontalAlignment="Left" FontFamily="Courier New" 
+                            FontWeight="Bold" FontSize="12" Foreground="White" Margin="0,5,0,0">
+                            Start Time:
+                        </Label>
+                        <xctk:DateTimePicker Name="StartTimePicker" Margin="0,30,0,235"
+                                     Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss" Height="35" Width="155"  HorizontalAlignment="Left"/>
+                        <Label Grid.Column="0" Grid.Row="0"  Width ="150" VerticalAlignment="Top" HorizontalAlignment="Left" FontFamily="Courier New" 
+                            FontWeight="Bold" FontSize="12" Foreground="White" Margin="0,70,0,0">
+                            End Time:
+                        </Label>
+                        <xctk:DateTimePicker Name="StopTimePicker" Margin="0,95,0,171"
+                                     Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss" Height="35" Width="155"  HorizontalAlignment="Left"/>
+                        <Label Grid.Column="0" Grid.Row="0"  Width ="150" VerticalAlignment="Top" HorizontalAlignment="Left" FontFamily="Courier New" 
+                            FontWeight="Bold" FontSize="12" Foreground="White" Margin="0,140,0,0">
+                            Granularity (s):
+                        </Label>
+                        <xctk:IntegerUpDown Name="GranularityPicker" Margin="45,165,0,100"
+                                    Minimum="1" Value="1"  Height="35" Width="56" RenderTransformOrigin="-0.391,0.571"  HorizontalAlignment="Left"/>
 
-        </Grid>
+                        <Button Name="update_chart" Grid.Column="0" Grid.Row="0" Width ="100" Height="20"
+                             Foreground="Black"
+                             FontFamily="Courier New" FontSize="12"
+                             VerticalAlignment="Top" HorizontalAlignment="Left"
+                             Margin="20,225,0,0" Click="Update_chart_Click">
+                            Update
+                        </Button>
+                    </Grid>
+                </Grid>
 
-        <Grid>
+            </TabItem>
+            <TabItem Header="Statistics">
+                <Grid>
+                    <lvc:CartesianChart Series="{Binding ColumnCollection}" LegendLocation="Left">
+                        <lvc:CartesianChart.AxisX>
+                            <lvc:Axis Title="MACs" Labels="{Binding ColumnLabels}"></lvc:Axis>
+                        </lvc:CartesianChart.AxisX>
+                        <lvc:CartesianChart.AxisY>
+                            <lvc:Axis Title="Quantity" LabelFormatter="{Binding ColumnFormatter}"></lvc:Axis>
+                        </lvc:CartesianChart.AxisY>
+                    </lvc:CartesianChart>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+
+
+        <!--
             <lvc:CartesianChart LegendLocation="Bottom" Name="scatterPlot" Height="400" Width="500"
                                 VerticalAlignment="Bottom" Margin="20,40,20,20" HorizontalAlignment="Right">
                 <lvc:CartesianChart.Series>
@@ -56,7 +95,6 @@
                                    PointGeometry="{x:Static lvc:DefaultGeometries.Diamond}" />
                 </lvc:CartesianChart.Series>
                 <lvc:CartesianChart.AxisY>
-                    <!--setting the axis unit improved the labels rounding rule-->
                     <lvc:Axis Unit="1">
                         <lvc:Axis.Separator>
                             <lvc:Separator IsEnabled="False"></lvc:Separator>
@@ -64,36 +102,16 @@
                     </lvc:Axis>
                 </lvc:CartesianChart.AxisY>
                 <lvc:CartesianChart.AxisX>
-                    <!--setting the axis unit improved the labels rounding rule-->
                     <lvc:Axis Unit="1">
                         <lvc:Axis.Separator>
                             <lvc:Separator IsEnabled="False"></lvc:Separator>
                         </lvc:Axis.Separator>
                     </lvc:Axis>
                 </lvc:CartesianChart.AxisX>
-                <Button Content="Go to Map" HorizontalAlignment="Left" Margin="415,168,0,0" VerticalAlignment="Top" Width="75" Click="GoToMapClick"/>
+                
             </lvc:CartesianChart>
-            <Grid>
-                <Label Grid.Column="0" Grid.Row="0"  Width ="150" VerticalAlignment="Top" HorizontalAlignment="Left" FontFamily="Courier New" 
-                FontWeight="Bold" FontSize="12" Foreground="White" Margin="590,400,100,200">
-                    Start Time:
-                </Label>
-                <xctk:DateTimePicker Name="StartTimePicker" Margin="50,270,100,195"
-                                     Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss" Height="35" Width="155"/>
-                <Label Grid.Column="0" Grid.Row="0"  Width ="150" VerticalAlignment="Top" HorizontalAlignment="Left" FontFamily="Courier New" 
-                FontWeight="Bold" FontSize="12" Foreground="White" Margin="590,465,100,200">
-                    End Time:
-                </Label>
-                <xctk:DateTimePicker Name="StopTimePicker" Margin="50,345,100,152"
-                                     Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss" Height="35" Width="155"/>
-                <Label Grid.Column="0" Grid.Row="0"  Width ="150" VerticalAlignment="Top" HorizontalAlignment="Left" FontFamily="Courier New" 
-                FontWeight="Bold" FontSize="12" Foreground="White" Margin="590,525,100,200">
-                    Granularity (s):
-                </Label>
-                <xctk:IntegerUpDown Name="GranularityPicker" Margin="50,420,100,100"
-                                    Minimum="1" Value="1"  Height="35" Width="55" />
-            </Grid>
-        </Grid>
+            -->
+        <Button Content="Go to Map" HorizontalAlignment="Left" Margin="1240,538,0,0" VerticalAlignment="Top" Width="75" Click="GoToMapClick"/>
 
         <Grid.Background>
             <ImageBrush ImageSource="app_bg.png"/>

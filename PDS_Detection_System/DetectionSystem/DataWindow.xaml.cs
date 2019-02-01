@@ -95,6 +95,16 @@ namespace DetectionSystem
                 }
             };
 
+            ColumnCollection = new SeriesCollection
+            {
+                // Change values
+                new ColumnSeries
+                {
+                    Title = "2015",
+                    Values = new ChartValues<double> { 10, 50, 39, 50 }
+                }
+            };
+
             /*** SCATTER PLOT CHART ***/
             /*
             var rand = new Random();
@@ -162,7 +172,9 @@ namespace DetectionSystem
                 ServerPipe.Close();
         }
         
-
+        /*
+         Line chart
+        */
         public SeriesCollection SeriesCollection { get; set; }
         public string[] LabelsDev {
             get { return _LabelsDev; }
@@ -173,6 +185,13 @@ namespace DetectionSystem
             }
         }
         public Func<double, string> Formatter { get; set; }
+
+        /*
+         Column chart
+        */
+        public SeriesCollection ColumnCollection { get; set; }
+        public string[] ColumnLabels { get; set; }
+        public Func<double, string> ColumnFormatter { get; set; }
 
         /*** SCATTER PLOT ***/
         public ChartValues<ObservablePoint> ValuesA { get; set; }
@@ -245,12 +264,15 @@ namespace DetectionSystem
                     if (n_counter == 0){
                         previous_timestamp = Convert.ToInt64(r[0]);
                         SeriesCollection[0].Values.Add(Convert.ToDouble(r[1]));
-                        labs.Add(TimeStampToDateTime(Convert.ToInt64(r[0])).ToString("HH:mm:ss"));
-                    }else{
+                        DateTime date = TimeStampToDateTime(Convert.ToInt64(r[0]));
+                        labs.Add(date.ToShortDateString() + "\n  " + date.ToString("HH:mm:ss"));
+                    }
+                    else{
                         if ((Convert.ToInt64(r[0]) - previous_timestamp) != granularity){
                             for (long i = granularity; i < (Convert.ToInt64(r[0]) - previous_timestamp); i+=granularity){
                                 SeriesCollection[0].Values.Add(Convert.ToDouble(0));
-                                labs.Add(TimeStampToDateTime(previous_timestamp + i).ToString("HH:mm:ss"));
+                                DateTime d = TimeStampToDateTime(previous_timestamp + i);
+                                labs.Add(d.ToShortDateString() + "\n  " + d.ToString("HH:mm:ss"));
                             }
                         }
                         SeriesCollection[0].Values.Add(Convert.ToDouble(r[1]));
