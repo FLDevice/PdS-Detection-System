@@ -39,6 +39,7 @@ namespace DetectionSystem
 
         public static TextBox output_box;
         private string[] _LabelsDev;
+        private string[] _ColumnLabels;
         protected bool is_running = false;
 
 
@@ -97,11 +98,10 @@ namespace DetectionSystem
 
             ColumnCollection = new SeriesCollection
             {
-                // Change values
                 new ColumnSeries
                 {
-                    Title = "2015",
-                    Values = new ChartValues<double> { 10, 50, 39, 50 }
+                    Title = "MAC's frequencies",
+                    Values = new ChartValues<double> {}
                 }
             };
 
@@ -190,7 +190,14 @@ namespace DetectionSystem
          Column chart
         */
         public SeriesCollection ColumnCollection { get; set; }
-        public string[] ColumnLabels { get; set; }
+        public string[] ColumnLabels{
+            get { return _ColumnLabels; }
+            set
+            {
+                _ColumnLabels = value;
+                OnPropertyChanged("ColumnLabels");
+            }
+        }
         public Func<double, string> ColumnFormatter { get; set; }
 
         /*** SCATTER PLOT ***/
@@ -235,14 +242,16 @@ namespace DetectionSystem
         }
 
 
-        private void Update_chart_Click(object sender, RoutedEventArgs e) {
+        private void Update_chart_Click(object sender, RoutedEventArgs e)
+        {
 
             string timestart = StartTimePicker.Text;
             string timestop = StopTimePicker.Text;
             long granularity = Convert.ToInt64(GranularityPicker.Text);
 
             MySqlCommand cmm = null;
-            try {
+            try
+            {
                 /*
                 cmm = new MySqlCommand("SELECT COUNT(DISTINCT mac) FROM devices WHERE timestamp BETWEEN '"
                                                     +timestart+"' AND '"+timestop+"'", DBconnection);
@@ -250,26 +259,31 @@ namespace DetectionSystem
                */
 
                 cmm = new MySqlCommand("SELECT (unix_timestamp(timestamp) - unix_timestamp(timestamp)%" + granularity + ") groupTime, count(*)"
-                                                    + " FROM devices WHERE timestamp BETWEEN '"+ timestart + "' AND '" + timestop + "'"
-                                                    + " GROUP BY groupTime", DBconnection);                
+                                                    + " FROM devices WHERE timestamp BETWEEN '" + timestart + "' AND '" + timestop + "'"
+                                                    + " GROUP BY groupTime", DBconnection);
                 MySqlDataReader r = cmm.ExecuteReader();
-               
+
                 // Create structure and clear data
                 List<string> labs = new List<string>();
                 SeriesCollection[0].Values.Clear();
                 // Read content of SQL command execution and add data to the graph
                 int n_counter = 0;
                 long previous_timestamp = 0;
-                while (r.Read()){
-                    if (n_counter == 0){
+                while (r.Read())
+                {
+                    if (n_counter == 0)
+                    {
                         previous_timestamp = Convert.ToInt64(r[0]);
                         SeriesCollection[0].Values.Add(Convert.ToDouble(r[1]));
                         DateTime date = TimeStampToDateTime(Convert.ToInt64(r[0]));
                         labs.Add(date.ToShortDateString() + "\n  " + date.ToString("HH:mm:ss"));
                     }
-                    else{
-                        if ((Convert.ToInt64(r[0]) - previous_timestamp) != granularity){
-                            for (long i = granularity; i < (Convert.ToInt64(r[0]) - previous_timestamp); i+=granularity){
+                    else
+                    {
+                        if ((Convert.ToInt64(r[0]) - previous_timestamp) != granularity)
+                        {
+                            for (long i = granularity; i < (Convert.ToInt64(r[0]) - previous_timestamp); i += granularity)
+                            {
                                 SeriesCollection[0].Values.Add(Convert.ToDouble(0));
                                 DateTime d = TimeStampToDateTime(previous_timestamp + i);
                                 labs.Add(d.ToShortDateString() + "\n  " + d.ToString("HH:mm:ss"));
@@ -277,14 +291,15 @@ namespace DetectionSystem
                         }
                         SeriesCollection[0].Values.Add(Convert.ToDouble(r[1]));
                         DateTime date = TimeStampToDateTime(Convert.ToInt64(r[0]));
-                        labs.Add(date.ToShortDateString()+"\n  "+date.ToString("HH:mm:ss"));
+                        labs.Add(date.ToShortDateString() + "\n  " + date.ToString("HH:mm:ss"));
                         previous_timestamp = Convert.ToInt64(r[0]);
                     }
                     n_counter++;
                 }
                 //Prepare labels
                 string[] ls = new string[labs.Count];
-                for(int i=0;i<labs.Count;i++) {
+                for (int i = 0; i < labs.Count; i++)
+                {
                     ls[i] = labs[i];
                 }
                 LabelsDev = ls;
@@ -293,8 +308,10 @@ namespace DetectionSystem
                 DataContext = this;
                 cmm.Dispose();
 
-            } catch(Exception ex){
-                if(cmm != null)
+            }
+            catch (Exception ex)
+            {
+                if (cmm != null)
                     cmm.Dispose();
                 output_box.AppendText("" + ex.Message);
                 Console.WriteLine(ex.StackTrace);
@@ -325,6 +342,54 @@ namespace DetectionSystem
             System.DateTime dtDateTime = new DateTime(1970, 1, 1, 0, 0, 0, 0, System.DateTimeKind.Utc);
             dtDateTime = dtDateTime.AddSeconds(unixTimeStamp).ToLocalTime();
             return dtDateTime;
+        }
+
+        private void Update_chart_col_Click(object sender, RoutedEventArgs e){
+            string timestart = StartTimePickerCol.Text;
+            string timestop = StopTimePickerCol.Text;
+            long devices_num = Convert.ToInt64(DevNumPickerCol.Text);
+
+            MySqlCommand cmm = null;
+            try
+            {
+                
+                cmm = new MySqlCommand("SELECT mac, count(*)"
+                                        + " FROM devices WHERE timestamp BETWEEN '" + timestart + "' AND '" + timestop + "'"
+                                        + " GROUP BY mac" 
+                                        + " ORDER BY count(*) DESC", DBconnection);
+                MySqlDataReader r = cmm.ExecuteReader();
+
+                // Create structure and clear data
+                List<string> labs = new List<string>();
+                ColumnCollection[0].Values.Clear();
+                long count = 1;
+                while (r.Read())
+                {
+                    ColumnCollection[0].Values.Add(Convert.ToDouble(r[1]));
+                    labs.Add(r[0].ToString());
+                    if (count == devices_num)
+                        break;
+                    count++;
+                }
+                //Prepare labels
+                string[] ls = new string[labs.Count];
+                for (int i = 0; i < labs.Count; i++)
+                {
+                    ls[i] = labs[i];
+                }
+                ColumnLabels = ls;
+                ColumnFormatter = value => value.ToString();
+                //Send data to the graph
+                DataContext = this;
+                cmm.Dispose();
+            }
+            catch (Exception ex)
+            {
+                if (cmm != null)
+                    cmm.Dispose();
+                output_box.AppendText("" + ex.Message);
+                Console.WriteLine(ex.StackTrace);
+            }
         }
     }
 }
