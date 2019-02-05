@@ -55,7 +55,7 @@ namespace DetectionSystem
                 dataReader.Close();
 
                 cmm = new MySqlCommand(
-                    "SELECT id, mac, x, y FROM ESP", DBconnection);
+                    "SELECT esp_id, mac, x, y FROM ESP", DBconnection);
                 dataReader = cmm.ExecuteReader();
 
                 eSPs = new List<ESP>();
