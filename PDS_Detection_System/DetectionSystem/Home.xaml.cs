@@ -1,5 +1,6 @@
 ﻿using MySql.Data.MySqlClient;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -51,6 +52,102 @@ namespace DetectionSystem
             }
         }
 
+        private void Old_Config_Click(object sender, RoutedEventArgs e)
+        {
+            if (filename == null)            {
+                output_box.Content = "Error: Server executable file not selected.";
+                return;
+            }
+
+            ArrayList macs = new ArrayList();
+            ArrayList ids = new ArrayList();
+            ArrayList xs = new ArrayList();
+            ArrayList ys = new ArrayList();
+            int count = 0;
+
+            MySqlCommand cmm = null;
+            try
+            {
+                DBconnection = new MySqlConnection();
+                DBconnection.ConnectionString = "server=localhost; database=pds_db; uid=pds_user; pwd=password";
+                DBconnection.Open();
+
+                cmm = new MySqlCommand("select count(*) from esp", DBconnection);
+                Console.WriteLine("before");
+                MySqlDataReader r = cmm.ExecuteReader();
+                Console.WriteLine("executed");
+
+                while (r.Read())
+                {
+
+                    count = Convert.ToInt32(r[0]);
+                    Console.WriteLine(count);
+
+                }
+                cmm.Dispose();
+                Console.WriteLine(count);
+                if (count <= 0) {
+                    throw new Exception();
+                }
+
+
+                cmm = new MySqlCommand("select * from esp", DBconnection);
+                r = cmm.ExecuteReader();
+                while (r.Read())
+                {
+                    macs.Add((string)r[0]);
+                    ids.Add((int)r[1]);
+                    xs.Add((int)r[2]);
+                    ys.Add((int)r[3]);
+                }
+                cmm.Dispose();
+                DBconnection.Close();
+            }
+            catch (Exception)
+            {
+                cmm.Dispose();
+                DBconnection.Close();
+                output_box.Content = "Error: Could not find an old config.";
+                return;
+            }
+
+            int esp_n = macs.Count;
+            string num = esp_n.ToString();
+
+            string x0 = (esp_n > 0) ? xs[0].ToString() : "0";
+            string y0 = (esp_n > 0) ? ys[0].ToString() : "0";
+            string x1 = (esp_n > 1) ? xs[1].ToString() : "0";
+            string y1 = (esp_n > 1) ? ys[1].ToString() : "0";
+            string x2 = (esp_n > 2) ? xs[2].ToString() : "0";
+            string y2 = (esp_n > 2) ? ys[2].ToString() : "0";
+            string x3 = (esp_n > 3) ? xs[3].ToString() : "0";
+            string y3 = (esp_n > 3) ? ys[3].ToString() : "0";
+            string x4 = (esp_n > 4) ? xs[4].ToString() : "0";
+            string y4 = (esp_n > 4) ? ys[4].ToString() : "0";
+            string x5 = (esp_n > 5) ? xs[5].ToString() : "0";
+            string y5 = (esp_n > 5) ? ys[5].ToString() : "0";
+            string x6 = (esp_n > 6) ? xs[6].ToString() : "0";
+            string y6 = (esp_n > 6) ? ys[6].ToString() : "0";
+            string x7 = (esp_n > 7) ? xs[7].ToString() : "0";
+            string y7 = (esp_n > 7) ? ys[7].ToString() : "0";
+
+            /*
+             args for TCPServer.cpp main() function:
+             0/1 -> if 1 the server should erase all the db
+             num -> num of esp in the system
+             coordinates of esps
+             */
+
+            string args = "0 " + num + " " + x0 + " " + y0 + " " + x1 + " " + y1 + " " +
+                                                        x2 + " " + y2 + " " + x3 + " " + y3 + " " +
+                                                        x4 + " " + y4 + " " + x5 + " " + y5 + " " +
+                                                        x6 + " " + y6 + " " + x7 + " " + y7;
+
+            DataWindow dataW = new DataWindow(args, filename);
+            dataW.Show();
+            Application.Current.MainWindow.Close();
+        }
+
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             if (filename == null) {
@@ -67,7 +164,13 @@ namespace DetectionSystem
             string x5 = esp5x.Text, y5 = esp5y.Text;
             string x6 = esp6x.Text, y6 = esp6y.Text;
             string x7 = esp7x.Text, y7 = esp7y.Text;
-            string args = num + " " + x0 + " " + y0 + " " + x1 + " " + y1 + " " +
+            /*
+             args for TCPServer.cpp main() function:
+             0/1 -> if 1 the server should erase all the db
+             num -> num of esp in the system
+             coordinates of esps
+             */
+            string args = "1 " + num + " " + x0 + " " + y0 + " " + x1 + " " + y1 + " " +
                                                         x2 + " " + y2 + " " + x3 + " " + y3 + " " +
                                                         x4 + " " + y4 + " " + x5 + " " + y5 + " " +
                                                         x6 + " " + y6 + " " + x7 + " " + y7;

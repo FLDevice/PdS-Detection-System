@@ -5,7 +5,7 @@ std::vector<int> x;
 std::vector<int> y;
 std::vector<double> d;
 */
-TCPServer::TCPServer(long int espn, std::vector<long int> vec) {
+TCPServer::TCPServer(long int should_erase_db, long int espn, std::vector<long int> vec) {
 	std::cout << " === TCPServer version 0.5 ===" << std::endl;
 	try {
 		TCPS_pipe_send("TCPServer");
@@ -14,8 +14,7 @@ TCPServer::TCPServer(long int espn, std::vector<long int> vec) {
 		std::cout << e.what() << std::endl;
 		throw;
 	}
-
-	setupDB();
+	setupDB(should_erase_db);
 
 	while (1) {
 
@@ -52,7 +51,7 @@ TCPServer::TCPServer(long int espn, std::vector<long int> vec) {
 			TCPS_socket();
 			TCPS_bind();
 			TCPS_listen();
-			TCPS_ask_participation(vec);
+			TCPS_ask_participation(vec, should_erase_db);
 			TCPS_close_listen_socket();
 
 			TCPS_initialize();
@@ -149,7 +148,7 @@ void TCPServer::TCPS_listen() {
 	}
 }
 
-void TCPServer::TCPS_ask_participation(std::vector<long int> vec) {
+void TCPServer::TCPS_ask_participation(std::vector<long int> vec, long int should_erase_db) {
 
 	std::cout << "Please unplug all the ESP32 from the energy source. You will plug them one at a time as requested." << std::endl << std::endl;
 
@@ -223,7 +222,8 @@ void TCPServer::TCPS_ask_participation(std::vector<long int> vec) {
 
 					// arguments: id, mac address, x pos, y pos, ready port for socket creation
 					ESP32 espdata(i/2, mac, posx, posy, port);
-					espdata.store_esp();
+					if (should_erase_db)
+						espdata.store_esp();
 					esp_list.push_back(espdata);
 
 					// return to the outer for loop
@@ -514,55 +514,68 @@ void TCPServer::TCPS_shutdown(SOCKET client_socket) {
 *
 * !!! Currently everytime the program is run the database is reinitialized.
 */
-void TCPServer::setupDB()
+void TCPServer::setupDB(long int should_erase_db)
 {
-	mysqlx::Session session("localhost", 33060, "pds_user", "password");
+	if (should_erase_db == 0)
+		return;
 
-	std::string quoted_name = std::string("`pds_db`.`Packet`");
+	try
+	{
+		mysqlx::Session session("localhost", 33060, "pds_user", "password");
 
-	session.sql(std::string("DROP TABLE IF EXISTS") + quoted_name).execute();
-	std::string create = "CREATE TABLE ";
-	create += quoted_name;
-	create += " (id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, ";
-	create += " esp_id INT UNSIGNED, ";
-	create += " timestamp TIMESTAMP, ";
-	create += " channel TINYINT UNSIGNED, ";
-	create += " seq_ctl VARCHAR(4), ";
-	create += " rssi TINYINT, ";
-	create += " addr VARCHAR(32), ";
-	create += " ssid VARCHAR(32), ";
-	create += " crc VARCHAR(8), ";
-	create += " hash INT UNSIGNED, ";
-	create += " to_be_deleted INT )";							// ADDED
+		std::string quoted_name = std::string("`pds_db`.`Packet`");
 
-	session.sql(create).execute();
+		session.sql(std::string("DROP TABLE IF EXISTS") + quoted_name).execute();
+		std::string create = "CREATE TABLE ";
+		create += quoted_name;
+		create += " (id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, ";
+		create += " esp_id INT UNSIGNED, ";
+		create += " timestamp TIMESTAMP, ";
+		create += " channel TINYINT UNSIGNED, ";
+		create += " seq_ctl VARCHAR(4), ";
+		create += " rssi TINYINT, ";
+		create += " addr VARCHAR(32), ";
+		create += " ssid VARCHAR(32), ";
+		create += " crc VARCHAR(8), ";
+		create += " hash INT UNSIGNED, ";
+		create += " to_be_deleted INT )";							// ADDED
 
-	quoted_name = std::string("`pds_db`.`ESP`");
+		session.sql(create).execute();
 
-	session.sql(std::string("DROP TABLE IF EXISTS") + quoted_name).execute();
-	create = "CREATE TABLE ";
-	create += quoted_name;
-	create += " (mac VARCHAR(32) NOT NULL PRIMARY KEY,";
-	create += " esp_id INT NOT NULL,";							// ADDED
-	create += " x INT NOT NULL,";
-	create += " y INT NOT NULL)";
+		quoted_name = std::string("`pds_db`.`ESP`");
 
-	session.sql(create).execute();
+		session.sql(std::string("DROP TABLE IF EXISTS") + quoted_name).execute();
+		create = "CREATE TABLE ";
+		create += quoted_name;
+		create += " (mac VARCHAR(32) NOT NULL PRIMARY KEY,";
+		create += " esp_id INT NOT NULL,";							// ADDED
+		create += " x INT NOT NULL,";
+		create += " y INT NOT NULL)";
 
-	//														***DEVICES TABLE ADDED***
-	quoted_name = std::string("`pds_db`.`Devices`");
+		session.sql(create).execute();
 
-	session.sql(std::string("DROP TABLE IF EXISTS") + quoted_name).execute();
-	create = "CREATE TABLE ";
-	create += quoted_name;
-	create += " (dev_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, ";
-	create += " mac VARCHAR(32) NOT NULL,";
-	create += " x FLOAT NOT NULL,";
-	create += " y FLOAT NOT NULL,";
-	create += " timestamp TIMESTAMP)";
+		//														***DEVICES TABLE ADDED***
+		quoted_name = std::string("`pds_db`.`Devices`");
 
-	session.sql(create).execute();
+		session.sql(std::string("DROP TABLE IF EXISTS") + quoted_name).execute();
 
+		create = "CREATE TABLE ";
+		create += quoted_name;
+		create += " (dev_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, ";
+		create += " mac VARCHAR(32) NOT NULL,";
+		create += " x FLOAT NOT NULL,";
+		create += " y FLOAT NOT NULL,";
+		create += " timestamp TIMESTAMP)";
+
+		session.sql(create).execute();
+
+	}
+	catch (std::exception &err) {
+		std::cout << "The following error occurred: " << err.what() << std::endl;
+
+		// Exit with error code
+		//exit(1);
+	}
 	std::cout << "Database correctly initialized." << std::endl;
 }
 

@@ -71,11 +71,13 @@ namespace DetectionSystem
                 DBconnection.ConnectionString = "server=localhost; database=pds_db; uid=pds_user; pwd=password";
                 DBconnection.Open();
                 cmm = new MySqlCommand("select count(*) from devices", DBconnection);
+                /*
                 MySqlDataReader r = cmm.ExecuteReader();
                 while (r.Read())
                 {
                     output_box.AppendText("" + r[0]);
                 }
+                */
                 cmm.Dispose();
             }
             catch (Exception e)
@@ -215,7 +217,9 @@ namespace DetectionSystem
                 //WriteOnTextBox("Reading from pipe: ");
                 while (reader.Peek() != -1)
                 {
-                    WriteOnTextBox((char)reader.Read() + "");
+                    
+                    //WriteOnTextBox((char)reader.Read() + "");
+                    
                     //TODO Switch messaggi server
                 }
 

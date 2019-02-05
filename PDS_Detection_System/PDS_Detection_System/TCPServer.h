@@ -178,7 +178,7 @@ protected:
 
 public:
 
-	TCPServer(long int espn, std::vector<long int> vec);
+	TCPServer(long int should_erase_db, long int espn, std::vector<long int> vec);
 
 private:
 
@@ -198,7 +198,7 @@ private:
 	void TCPS_listen();
 
 	/** listen for ESP32 joining requests */
-	void TCPS_ask_participation(std::vector<long int> vec);
+	void TCPS_ask_participation(std::vector<long int> vec, long int should_erase_db);
 
 	/** create a connection with the ESP32 to notify when the server is ready */
 	void TCPS_ready_channel(int esp_id);
@@ -220,7 +220,7 @@ private:
 	* Create the table used to store the packets.
 	*
 	* !!! Currently everytime the program is run the database is reinitialized. */
-	void setupDB();
+	void setupDB(long int should_erase_db);
 
 	void storePackets(int count, int esp_id, char* recvbuf);
 
