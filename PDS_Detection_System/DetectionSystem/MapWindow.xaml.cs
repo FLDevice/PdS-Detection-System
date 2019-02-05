@@ -67,7 +67,7 @@ namespace DetectionSystem
 
                 //close Data Reader
                 dataReader.Close();
-
+                cmm.Dispose();
                 DBconnection.Close();
             }
             catch (Exception exc)

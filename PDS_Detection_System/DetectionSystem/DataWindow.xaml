@@ -24,7 +24,7 @@
         <TabControl HorizontalAlignment="Left" Height="450" Width="700" Margin="24,325,0,0" >
             <TabItem Header="Devices's map" >
                 <Grid Background="Black" >
-                    <lvc:CartesianChart Series="{Binding SeriesCollection}" LegendLocation="Top" Height="400" Width="500"
+                    <lvc:CartesianChart Series="{Binding SeriesCollection}" Height="400" Width="500"
                                 HorizontalAlignment="Left"
                                 Name="devicesChart" Margin="0,0,0,0">
                         <lvc:CartesianChart.AxisX>
@@ -32,9 +32,9 @@
                         </lvc:CartesianChart.AxisX>
                         <lvc:CartesianChart.AxisY>
                             <lvc:Axis MinValue="0" Title="Devices" LabelFormatter="{Binding Formatter}">
-                                <!--<lvc:Axis.Separator>
+                                <lvc:Axis.Separator>
                                     <lvc:Separator IsEnabled="True" Step="1"></lvc:Separator>
-                                </lvc:Axis.Separator>-->
+                                </lvc:Axis.Separator>
                             </lvc:Axis>
                         </lvc:CartesianChart.AxisY>
                     </lvc:CartesianChart>
@@ -72,7 +72,7 @@
             </TabItem>
             <TabItem Header="Statistics">
                 <Grid Background="Black">
-                    <lvc:CartesianChart Series="{Binding ColumnCollection}" LegendLocation="Top" Height="400" Width="500"
+                    <lvc:CartesianChart Series="{Binding ColumnCollection}" Height="400" Width="500"
                                 HorizontalAlignment="Left"
                                 Name="frequenciesChart" Margin="0,0,0,0">
                         <lvc:CartesianChart.AxisX>
@@ -82,31 +82,37 @@
                             <lvc:Axis Title="Quantity" LabelFormatter="{Binding ColumnFormatter}" MinValue="0"></lvc:Axis>
                         </lvc:CartesianChart.AxisY>
                     </lvc:CartesianChart>
-                    <Grid Width="200" Height="300" Margin="510,60,30,60">
+                    <Grid Width="200" Margin="510,61,-15.6,30.6">
                         <Label Grid.Column="0" Grid.Row="0"  Width ="150" VerticalAlignment="Top" HorizontalAlignment="Left" FontFamily="Courier New" 
                             FontWeight="Bold" FontSize="12" Foreground="White" Margin="0,5,0,0">
                             Start Time:
                         </Label>
-                        <xctk:DateTimePicker Name="StartTimePickerCol" Margin="0,30,0,235"
+                        <xctk:DateTimePicker Name="StartTimePickerCol" Margin="0,30,0,265"
                                      Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss" Height="35" Width="155"  HorizontalAlignment="Left"/>
                         <Label Grid.Column="0" Grid.Row="0"  Width ="150" VerticalAlignment="Top" HorizontalAlignment="Left" FontFamily="Courier New" 
                             FontWeight="Bold" FontSize="12" Foreground="White" Margin="0,70,0,0">
                             End Time:
                         </Label>
-                        <xctk:DateTimePicker Name="StopTimePickerCol" Margin="0,95,0,171"
+                        <xctk:DateTimePicker Name="StopTimePickerCol" Margin="0,95,0,200"
                                      Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss" Height="35" Width="155"  HorizontalAlignment="Left"/>
                         <Label Grid.Column="0" Grid.Row="0"  Width ="150" VerticalAlignment="Top" HorizontalAlignment="Left" FontFamily="Courier New" 
-                            FontWeight="Bold" FontSize="12" Foreground="White" Margin="0,140,0,0">
+                            FontWeight="Bold" FontSize="12" Foreground="White" Margin="0,137,0,0">
                             Number of devices:
                         </Label>
-                        <xctk:IntegerUpDown Name="DevNumPickerCol" Margin="45,165,0,100"
+                        <xctk:IntegerUpDown Name="DevNumPickerCol" Margin="45,161,0,134"
+                                    Minimum="1" Value="1"  Height="35" Width="56" RenderTransformOrigin="-0.391,0.571"  HorizontalAlignment="Left"/>
+                        <Label Grid.Column="0" Grid.Row="0"  Width ="150" VerticalAlignment="Top" HorizontalAlignment="Left" FontFamily="Courier New" 
+                            FontWeight="Bold" FontSize="12" Foreground="White" Margin="0,201,0,0">
+                            Granularity (s):
+                        </Label>
+                        <xctk:IntegerUpDown Name="GranularityPickerStack" Margin="45,225,0,70"
                                     Minimum="1" Value="1"  Height="35" Width="56" RenderTransformOrigin="-0.391,0.571"  HorizontalAlignment="Left"/>
 
                         <Button Name="update_chart_col" Grid.Column="0" Grid.Row="0" Width ="100" Height="20"
                              Foreground="Black"
                              FontFamily="Courier New" FontSize="12"
                              VerticalAlignment="Top" HorizontalAlignment="Left"
-                             Margin="20,225,0,0" Click="Update_chart_col_Click">
+                             Margin="19,280,0,0" Click="Update_chart_col_Click">
                             Update
                         </Button>
                     </Grid>
