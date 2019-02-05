@@ -97,15 +97,7 @@ namespace DetectionSystem
             };
 
             /*** BASIC COLUMN CHART ***/
-            ColumnCollection = new SeriesCollection
-            {
-                new StackedColumnSeries
-                {
-                    Values = new ChartValues<double> {},
-                    StackMode = StackMode.Values, // this is not necessary, values is the default stack mode
-                    DataLabels = true
-                }
-            };
+            ColumnCollection = new SeriesCollection {};
             
         }
 
@@ -288,6 +280,7 @@ namespace DetectionSystem
                 }
                 LabelsDev = ls;
                 Formatter = value => value.ToString();
+
                 //Send data to the graph
                 DataContext = this;
                 cmm.Dispose();
@@ -337,72 +330,111 @@ namespace DetectionSystem
             MySqlCommand cmm = null;
             try
             {
-                cmm = new MySqlCommand("SELECT (unix_timestamp(timestamp) - unix_timestamp(timestamp)%" + granularity + ") groupTime, d.mac, count(*) "
-                                        + " FROM devices d JOIN(SELECT mac FROM devices"
-                                        + " WHERE timestamp BETWEEN '" + timestart + "' AND '" + timestop + "'"
-                                        + " GROUP BY mac"
-                                        + " ORDER BY count(*) DESC LIMIT " + devices_num + ") x ON(x.mac = d.mac)"
-                                        + " WHERE timestamp BETWEEN '" + timestart + "' AND '" + timestop + "'"
-                                        + " GROUP BY groupTime, d.mac", DBconnection);
+                // Initialize the graph structure and clear existing data
+                cmm = new MySqlCommand("SELECT mac FROM devices"
+                                    + " WHERE timestamp BETWEEN '" + timestart + "' AND '" + timestop + "'"
+                                    + " GROUP BY mac"
+                                    + " ORDER BY count(*) DESC LIMIT " + devices_num, DBconnection);
 
 
                 MySqlDataReader r = cmm.ExecuteReader();
 
-                // Create structure and clear data
                 List<string> labs = new List<string>();
                 Dictionary<string, int> map = new Dictionary<string, int>();
-                //Clear old data
-                ColumnCollection.Clear();
-                for (int i = 0; i < devices_num; i++)
-                {
-                    ColumnCollection.Add(new StackedColumnSeries
-                    {
-                        Values = new ChartValues<double> { },
-                        StackMode = StackMode.Values
-                    });
-                }
 
+                // Clear old data
+                if (ColumnCollection.Count!=0)
+                    ColumnCollection.Clear(); 
+
+                // For each mac read, store the address in the map and add a series to the chart
                 int count = 0;
-                bool first = true;
-                ts_structure TS = new ts_structure(0, devices_num);
                 while (r.Read())
                 {
-                    if (!map.ContainsKey(r[1].ToString()))
+                    if (!map.ContainsKey(r[0].ToString()))
                     {
-                        map.Add(r[1].ToString(), count);
+                        map.Add(r[0].ToString(), count);
                         count++;
-                    }
 
-                    if (first)
-                    {
-                        TS = new ts_structure(Convert.ToInt64(r[0]), devices_num);
-                        TS.AddMAC(r[1].ToString(), Convert.ToInt32(r[2]));
-                        first = false;
-                    }
-                    else
-                    {
-                        if (TS.Timestamp == Convert.ToInt64(r[0]))
+                        ColumnCollection.Add(new StackedColumnSeries
                         {
-                            TS.AddMAC(r[1].ToString(), Convert.ToInt32(r[2]));
-                        }
-                        else
-                        {
-                            if (TS.MACMap.Count != devices_num) {
-                                for (int i = TS.MACMap.Count; i <= devices_num; i++)
-                                    TS.AddMAC("", 0);
-                            }
-
-                            foreach (KeyValuePair<string, int> mac in TS.MACMap) {
-                                if(mac.Key != "")
-                                    ColumnCollection[map[mac.Key]].Values.Add(Convert.ToDouble(mac.Value));
-                            }
-                            
-                            TS = new ts_structure(Convert.ToInt64(r[0]), devices_num);
-                        }
-
+                            Title = r[0].ToString(),
+                            Values = new ChartValues<double> { },
+                            StackMode = StackMode.Values
+                        });
                     }
                 }
 
+                r.Close();
+
+                // Now that the graph is correctly initialized, read the actual data about the most frequent devices
+                cmm = new MySqlCommand("SELECT (unix_timestamp(timestamp) - unix_timestamp(timestamp)%" + granularity + ") groupTime, d.mac, count(*) "
+                                        + " FROM devices d JOIN(SELECT mac FROM devices"
+                                        +                     " WHERE timestamp BETWEEN '" + timestart + "' AND '" + timestop + "'"
+                                        +                     " GROUP BY mac"
+                                        +                     " ORDER BY count(*) DESC LIMIT " + devices_num 
+                                        + ") x ON(x.mac = d.mac)"
+                                        + " WHERE timestamp BETWEEN '" + timestart + "' AND '" + timestop + "'"
+                                        + " GROUP BY groupTime, d.mac", DBconnection);
+
+
+                r = cmm.ExecuteReader();
+                
+                bool first = true;
+                int actualDevicesNum = map.Count;
+                Ts_structure TS = new Ts_structure(0, actualDevicesNum);
+                while (r.Read())
+                {
+                    // The first time we iterate through the loop we need to properly initialize the ts_structure 
+                    if (first) 
+                    {
+                        TS = new Ts_structure(Convert.ToInt64(r[0]), actualDevicesNum);
+                        first = false;
+                    }
+
+                    // If the timestamp is different from the previous one, it means we completed the analisys of the previous time segment, 
+                    // hence its time to update the graph with the macs collected during that timeframe.
+                    if (TS.Timestamp != Convert.ToInt64(r[0]))
+                    {
+                        // Even if some MAC wasn't read during a specific time segment, we still need to keep track of its absence in the graph
+                        if (TS.MACMap.Count != actualDevicesNum) {
+                            TS.AddMAC(map, 0);     
+                        }
+
+                        // Add the data to the graph
+                        foreach (KeyValuePair<string, int> mac in TS.MACMap) {
+                            ColumnCollection[map[mac.Key]].Values.Add(Convert.ToDouble(mac.Value));
+                        }
+                        DateTime dIn = TimeStampToDateTime(TS.Timestamp);
+                        labs.Add(dIn.ToShortDateString() + "\n  " + dIn.ToString("HH:mm:ss"));
+
+                        TS = new Ts_structure(Convert.ToInt64(r[0]), actualDevicesNum);
+                    }
+
+                    // Add the mac address and its occurrence within the time segment in the TS_structure
+                    TS.AddMAC(r[1].ToString(), Convert.ToInt32(r[2]));
+                    
+                }
+
+                // When we go out of the r.Read() while loop, we still need to add the last data to the graph.
+                // If any data was read from the database, then finish the graph update with the last data.
+                if(!first)
+                {                           
+                    // Even if some MAC wasn't read during a specific time segment, we still need to keep track of its absence in the graph
+                    if (TS.MACMap.Count != actualDevicesNum)
+                    {
+                        TS.AddMAC(map, 0);
+                    }
+
+                    // Add the data to the graph
+                    foreach (KeyValuePair<string, int> mac in TS.MACMap)
+                    {
+                        ColumnCollection[map[mac.Key]].Values.Add(Convert.ToDouble(mac.Value));
+                    }
+                    DateTime d = TimeStampToDateTime(TS.Timestamp);
+                    labs.Add(d.ToShortDateString() + "\n  " + d.ToString("HH:mm:ss"));
+                }
+                
+                
                 //Prepare labels
                 string[] ls = new string[labs.Count];
                 for (int i = 0; i < labs.Count; i++)
@@ -424,11 +456,10 @@ namespace DetectionSystem
             }
         }
 
-        public class ts_structure
+        public class Ts_structure
         {
             private int mac_num;
             private long timestamp;
-            private int counter;
             Dictionary<string, int> mac_map;
 
             public long Timestamp {
@@ -436,21 +467,30 @@ namespace DetectionSystem
             }
 
             public void AddMAC(string mac, int value) {
-                mac_map.Add("mac", value);
+                if (!mac_map.ContainsKey(mac))
+                {
+                    mac_map.Add(mac, value);
+                }
+            }
+
+            public void AddMAC(Dictionary<string, int> map, int value)
+            {
+                foreach (KeyValuePair<string, int> item in map)
+                {
+                    AddMAC(item.Key, value);
+                }
             }
 
             public Dictionary<string, int> MACMap {
                 get { return mac_map; }
             }
 
-            public ts_structure(long timestamp, int mac_num)
+            public Ts_structure(long timestamp, int mac_num)
             {
-                this.counter = 0;
                 this.timestamp = timestamp;
                 this.mac_num = mac_num;
                 mac_map = new Dictionary<string, int>();
             }
         }
-
     }
 }
