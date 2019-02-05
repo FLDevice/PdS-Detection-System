@@ -53,10 +53,10 @@ namespace DetectionSystem
             output_box = (TextBox)this.FindName("stdout2");
             StartServer();
 
-            /*** Pipe handle Function ***/            
+            /*** Pipe handle Function ***/
             ServerPipe = new NamedPipeServerStream(PIPENAME, PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Message, PipeOptions.Asynchronous);
             ServerPipe.BeginWaitForConnection(new AsyncCallback(PipeASyncFunction), this);
-            
+
             /*
              * 1. Crea NamedPipeServerStream qui
              * 2. Chiama BeginWaitForConnection(AsyncCallback, Object)
@@ -71,13 +71,11 @@ namespace DetectionSystem
                 DBconnection.ConnectionString = "server=localhost; database=pds_db; uid=pds_user; pwd=password";
                 DBconnection.Open();
                 cmm = new MySqlCommand("select count(*) from devices", DBconnection);
-                /*
                 MySqlDataReader r = cmm.ExecuteReader();
                 while (r.Read())
                 {
                     output_box.AppendText("" + r[0]);
                 }
-                */
                 cmm.Dispose();
             }
             catch (Exception e)
@@ -86,9 +84,9 @@ namespace DetectionSystem
                 output_box.ScrollToEnd();
                 cmm.Dispose();
             }
-       
 
-            /*** BASIC COLUMN CHART ***/
+
+            /*** BASIC LINE CHART ***/
             SeriesCollection = new SeriesCollection
             {
                 new LineSeries
@@ -98,28 +96,17 @@ namespace DetectionSystem
                 }
             };
 
+            /*** BASIC COLUMN CHART ***/
             ColumnCollection = new SeriesCollection
             {
-                new ColumnSeries
+                new StackedColumnSeries
                 {
-                    Title = "MAC's frequencies",
-                    Values = new ChartValues<double> {}
+                    Values = new ChartValues<double> {},
+                    StackMode = StackMode.Values, // this is not necessary, values is the default stack mode
+                    DataLabels = true
                 }
             };
-
-            /*** SCATTER PLOT CHART ***/
-            /*
-            var rand = new Random();
-            ValuesA = new ChartValues<ObservablePoint>();
-            ValuesB = new ChartValues<ObservablePoint>();
-
-
-            for (var i = 0; i < 20; i++)
-            {
-                ValuesA.Add(new ObservablePoint(rand.NextDouble() * 10, rand.NextDouble() * 10));
-                ValuesB.Add(new ObservablePoint(rand.NextDouble() * 10, rand.NextDouble() * 10));
-            }
-            */
+            
         }
 
 
@@ -202,11 +189,6 @@ namespace DetectionSystem
         }
         public Func<double, string> ColumnFormatter { get; set; }
 
-        /*** SCATTER PLOT ***/
-        public ChartValues<ObservablePoint> ValuesA { get; set; }
-        public ChartValues<ObservablePoint> ValuesB { get; set; }
-        public ChartValues<ObservablePoint> ValuesC { get; set; }
-
 
         private void PipeASyncFunction(IAsyncResult result) {
             try
@@ -217,9 +199,7 @@ namespace DetectionSystem
                 //WriteOnTextBox("Reading from pipe: ");
                 while (reader.Peek() != -1)
                 {
-                    
-                    //WriteOnTextBox((char)reader.Read() + "");
-                    
+                    WriteOnTextBox((char)reader.Read() + "");
                     //TODO Switch messaggi server
                 }
 
@@ -351,30 +331,78 @@ namespace DetectionSystem
         private void Update_chart_col_Click(object sender, RoutedEventArgs e){
             string timestart = StartTimePickerCol.Text;
             string timestop = StopTimePickerCol.Text;
-            long devices_num = Convert.ToInt64(DevNumPickerCol.Text);
+            long granularity = Convert.ToInt64(GranularityPickerStack.Text);
+            int devices_num = Convert.ToInt32(DevNumPickerCol.Text);
 
             MySqlCommand cmm = null;
             try
             {
-                
-                cmm = new MySqlCommand("SELECT mac, count(*)"
-                                        + " FROM devices WHERE timestamp BETWEEN '" + timestart + "' AND '" + timestop + "'"
-                                        + " GROUP BY mac" 
-                                        + " ORDER BY count(*) DESC", DBconnection);
+                cmm = new MySqlCommand("SELECT (unix_timestamp(timestamp) - unix_timestamp(timestamp)%" + granularity + ") groupTime, d.mac, count(*) "
+                                        + " FROM devices d JOIN(SELECT mac FROM devices"
+                                        + " WHERE timestamp BETWEEN '" + timestart + "' AND '" + timestop + "'"
+                                        + " GROUP BY mac"
+                                        + " ORDER BY count(*) DESC LIMIT " + devices_num + ") x ON(x.mac = d.mac)"
+                                        + " WHERE timestamp BETWEEN '" + timestart + "' AND '" + timestop + "'"
+                                        + " GROUP BY groupTime, d.mac", DBconnection);
+
+
                 MySqlDataReader r = cmm.ExecuteReader();
 
                 // Create structure and clear data
                 List<string> labs = new List<string>();
-                ColumnCollection[0].Values.Clear();
-                long count = 1;
+                Dictionary<string, int> map = new Dictionary<string, int>();
+                //Clear old data
+                ColumnCollection.Clear();
+                for (int i = 0; i < devices_num; i++)
+                {
+                    ColumnCollection.Add(new StackedColumnSeries
+                    {
+                        Values = new ChartValues<double> { },
+                        StackMode = StackMode.Values
+                    });
+                }
+
+                int count = 0;
+                bool first = true;
+                ts_structure TS = new ts_structure(0, devices_num);
                 while (r.Read())
                 {
-                    ColumnCollection[0].Values.Add(Convert.ToDouble(r[1]));
-                    labs.Add(r[0].ToString());
-                    if (count == devices_num)
-                        break;
-                    count++;
+                    if (!map.ContainsKey(r[1].ToString()))
+                    {
+                        map.Add(r[1].ToString(), count);
+                        count++;
+                    }
+
+                    if (first)
+                    {
+                        TS = new ts_structure(Convert.ToInt64(r[0]), devices_num);
+                        TS.AddMAC(r[1].ToString(), Convert.ToInt32(r[2]));
+                        first = false;
+                    }
+                    else
+                    {
+                        if (TS.Timestamp == Convert.ToInt64(r[0]))
+                        {
+                            TS.AddMAC(r[1].ToString(), Convert.ToInt32(r[2]));
+                        }
+                        else
+                        {
+                            if (TS.MACMap.Count != devices_num) {
+                                for (int i = TS.MACMap.Count; i <= devices_num; i++)
+                                    TS.AddMAC("", 0);
+                            }
+
+                            foreach (KeyValuePair<string, int> mac in TS.MACMap) {
+                                if(mac.Key != "")
+                                    ColumnCollection[map[mac.Key]].Values.Add(Convert.ToDouble(mac.Value));
+                            }
+                            
+                            TS = new ts_structure(Convert.ToInt64(r[0]), devices_num);
+                        }
+
+                    }
                 }
+
                 //Prepare labels
                 string[] ls = new string[labs.Count];
                 for (int i = 0; i < labs.Count; i++)
@@ -395,5 +423,34 @@ namespace DetectionSystem
                 Console.WriteLine(ex.StackTrace);
             }
         }
+
+        public class ts_structure
+        {
+            private int mac_num;
+            private long timestamp;
+            private int counter;
+            Dictionary<string, int> mac_map;
+
+            public long Timestamp {
+                get { return timestamp; }
+            }
+
+            public void AddMAC(string mac, int value) {
+                mac_map.Add("mac", value);
+            }
+
+            public Dictionary<string, int> MACMap {
+                get { return mac_map; }
+            }
+
+            public ts_structure(long timestamp, int mac_num)
+            {
+                this.counter = 0;
+                this.timestamp = timestamp;
+                this.mac_num = mac_num;
+                mac_map = new Dictionary<string, int>();
+            }
+        }
+
     }
 }
