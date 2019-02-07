@@ -569,6 +569,21 @@ void TCPServer::setupDB(long int should_erase_db)
 
 		session.sql(create).execute();
 
+		//														***LOCAL MAC DEVICES TABLE ADDED***
+		quoted_name = std::string("`pds_db`.`Local_Macs`");
+
+		session.sql(std::string("DROP TABLE IF EXISTS") + quoted_name).execute();
+
+		create = "CREATE TABLE ";
+		create += quoted_name;
+		create += " (dev_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, ";
+		create += " mac VARCHAR(32) NOT NULL,";
+		create += " x FLOAT NOT NULL,";
+		create += " y FLOAT NOT NULL,";
+		create += " timestamp TIMESTAMP)";
+
+		session.sql(create).execute();
+
 	}
 	catch (std::exception &err) {
 		std::cout << "The following error occurred: " << err.what() << std::endl;

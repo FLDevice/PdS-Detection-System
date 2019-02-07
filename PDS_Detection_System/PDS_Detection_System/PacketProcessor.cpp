@@ -77,6 +77,7 @@ void PacketProcessor::process() {
 			mysqlx::Table packetTable = myDb.getTable("Packet");
 			mysqlx::Table espTable = myDb.getTable("ESP");
 			mysqlx::Table devicesTable = myDb.getTable("Devices");
+			mysqlx::Table localMacsTable = myDb.getTable("Local_Macs");
 
 			mysqlx::RowResult retrievedPackets;
 			mysqlx::Row row;
@@ -146,9 +147,19 @@ void PacketProcessor::process() {
 					char average_time[20];
 					localtime_s(&timeinfo, &rawtime);
 					strftime(average_time, 20, "%F %T", &timeinfo);
+					
+					//Check if MAC address is local
+					int local = 0;
+					int firstByteMAC = std::stol(current_address.substr(0, 2), nullptr, 16);
+					int mask = 0b00000010;
+					if (firstByteMAC & mask) 
+						local = 1; //local MAC
 
 					if (ca.isInside(pos_x, pos_y)) {
-						devicesTable.insert("mac", "x", "y", "timestamp").values(current_address, pos_x, pos_y, average_time).execute();
+						if (local)
+							localMacsTable.insert("mac", "x", "y", "timestamp").values(current_address, pos_x, pos_y, average_time).execute();
+						else
+							devicesTable.insert("mac", "x", "y", "timestamp").values(current_address, pos_x, pos_y, average_time).execute();
 						//std::cout << "    Device within the coverage area." << std::endl;
 						//std::cout << "    Coordinates of " << current_address << " : X=" << pos_x << ", Y=" << pos_y << std::endl << std::endl;
 					}
