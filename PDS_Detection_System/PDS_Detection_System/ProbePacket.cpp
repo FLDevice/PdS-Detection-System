@@ -53,7 +53,7 @@ void ProbePacket::print(long int last_update) {
 *
 *	long int last_update: The last time when the local computer timestamp has been properly recorded.
 */
-void ProbePacket::storeInDB(mysqlx::Table packetTable, long int last_update, uint8_t espid) {
+void ProbePacket::storeInDB(mysqlx::Table packetTable, mysqlx::Table localPacketsTable, long int last_update, uint8_t espid) {
 	
 	// Computing the timestamp
 	time_t rawtime = last_update + timestamp / 1000000;
@@ -88,10 +88,23 @@ void ProbePacket::storeInDB(mysqlx::Table packetTable, long int last_update, uin
 	snprintf(buff, sizeof(buff), "%02x%02x%02x%02x", crc[0], crc[1], crc[2], crc[3]);
 	std::string crc_to_store = buff;
 
+	//Check if (source) MAC address is local and unicast
+	int local = 0;
+	int firstByteMAC = std::stol(address.substr(0, 2), nullptr, 16);
+	int mask1 = 0b00000010; // global/local bit
+	int mask2 = 0b00000001; // unicast/multicast bit 
+	if ((firstByteMAC & mask1) && !(firstByteMAC & mask2))
+		local = 1; //local MAC
+
 	try {
 		// Insert SQL Table data
 		packetTable.insert("esp_id", "timestamp", "channel", "seq_ctl", "rssi", "addr", "ssid", "crc", "hash", "to_be_deleted") //ADDED "triangulated" = 0
 			.values(espid, receive_time, channel, ctl_to_store, rssi, address, ssid_to_store, crc_to_store, hash, 0).execute();
+
+		if (local)
+			localPacketsTable.insert("addr", "timestamp", "seq_ctl", "to_be_deleted") //ADDED "triangulated" = 0
+			.values(address, receive_time, ctl_to_store, 0).execute();
+
 	}
 	catch(...) {
 		printf("\n\n\n\n\n\nThis dumbass is still fucking around...\n\n\n\n\n\n\n");

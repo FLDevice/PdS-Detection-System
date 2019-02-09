@@ -148,11 +148,12 @@ void PacketProcessor::process() {
 					localtime_s(&timeinfo, &rawtime);
 					strftime(average_time, 20, "%F %T", &timeinfo);
 					
-					//Check if MAC address is local
+					//Check if (source) MAC address is local and unicast
 					int local = 0;
 					int firstByteMAC = std::stol(current_address.substr(0, 2), nullptr, 16);
-					int mask = 0b00000010;
-					if (firstByteMAC & mask) 
+					int mask1 = 0b00000010; // global/local bit
+					int mask2 = 0b00000001; // unicast/multicast bit 
+					if ((firstByteMAC & mask1) && !(firstByteMAC & mask2))
 						local = 1; //local MAC
 
 					if (ca.isInside(pos_x, pos_y)) {

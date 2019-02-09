@@ -569,7 +569,7 @@ void TCPServer::setupDB(long int should_erase_db)
 
 		session.sql(create).execute();
 
-		//														***LOCAL MAC DEVICES TABLE ADDED***
+		//														*** LOCAL MAC DEVICES TABLE ADDED ***
 		quoted_name = std::string("`pds_db`.`Local_Macs`");
 
 		session.sql(std::string("DROP TABLE IF EXISTS") + quoted_name).execute();
@@ -581,6 +581,20 @@ void TCPServer::setupDB(long int should_erase_db)
 		create += " x FLOAT NOT NULL,";
 		create += " y FLOAT NOT NULL,";
 		create += " timestamp TIMESTAMP)";
+
+		session.sql(create).execute();
+
+		//											*** PACKETS WITH LOCAL SOURCE MAC ADDRESS ADDED ***
+	    quoted_name = std::string("`pds_db`.`Local_Packets`");
+
+		session.sql(std::string("DROP TABLE IF EXISTS") + quoted_name).execute();
+		create = "CREATE TABLE ";
+		create += quoted_name;
+		create += " (id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, ";
+		create += " addr VARCHAR(32), ";
+		create += " timestamp TIMESTAMP, ";
+		create += " seq_ctl VARCHAR(4), ";
+		create += " to_be_deleted INT )";
 
 		session.sql(create).execute();
 
@@ -605,13 +619,14 @@ void TCPServer::storePackets(int count, int esp_id, char* recvbuf) {
 
 			// Accessing the packet table
 			mysqlx::Table packetTable = myDb.getTable("Packet");
+			mysqlx::Table localPacketsTable = myDb.getTable("Local_Packets");
 
 			for (int i = 0; i < count; i++) {
 				ProbePacket pp;
 				memcpy(&pp, recvbuf + (i*PACKET_SIZE), PACKET_SIZE);
 
 				//pp_vector.push(pp);
-				pp.storeInDB(packetTable, time_since_last_update, esp_id);
+				pp.storeInDB(packetTable, localPacketsTable, time_since_last_update, esp_id);
 			}
 		}
 		catch (std::exception &err) {
