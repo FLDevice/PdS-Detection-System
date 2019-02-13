@@ -492,5 +492,100 @@ namespace DetectionSystem
                 mac_map = new Dictionary<string, int>();
             }
         }
+
+        private void Update_chart_err_Click(object sender, RoutedEventArgs e)
+        {
+            string timestart = StartTimePickereErr.Text;
+            string timestop = StopTimePickerErr.Text;
+            List<LocalAddress> AddrList = new List<LocalAddress>();
+
+            MySqlCommand cmm = null;
+            try
+            {
+                // Initialize the graph structure and clear existing data
+                cmm = new MySqlCommand("SELECT mac, x, y, m.timestamp, seq_ctl from local_macs AS m " +
+                                        "JOIN (local_packets AS p) ON (m.mac = p.addr) " +
+                                        "WHERE timestamp BETWEEN '" + timestart + "' AND '" + timestop + "'"+
+                                        "GROUP BY m.timestamp, seq_ctl " +
+                                        "ORDER BY m.timestamp", DBconnection);
+                MySqlDataReader r = cmm.ExecuteReader();
+                while (r.Read())
+                {                    
+                    LocalAddress lA = new LocalAddress(r[0].ToString(), 
+                                                       Convert.ToInt32(r[4].ToString()), 
+                                                       Convert.ToInt64(r[3]), 
+                                                       Convert.ToDouble(r[1]), 
+                                                       Convert.ToDouble(r[2])
+                                        );
+                    AddrList.Add(lA);
+                }
+                cmm.Dispose();
+            }
+            catch (Exception ex)
+            {
+                if (cmm != null)
+                    cmm.Dispose();
+                output_box.AppendText("" + ex.Message);
+                Console.WriteLine(ex.StackTrace);
+            }
+            // Versione semplice senza l'associazione del numero di mac ad ogni device
+            int devices_count = 0;
+            foreach (LocalAddress lA in AddrList) {
+                if (lA.isChecked)
+                    continue;
+                lA.isChecked = true;
+                devices_count++;
+                foreach (LocalAddress lAin in AddrList) {
+                    if (lAin == lA)
+                        continue;
+                    if (!lAin.isChecked) {
+                        if ((lA.timestamp == lAin.timestamp) && (lA.mac != lAin.mac))
+                            continue;
+                        if ((lAin.seq_n > lA.seq_n) && (lAin.seq_n - lA.seq_n < 0x500))
+                        {
+                            lAin.isChecked = true;
+                            continue;
+                        }
+                        long timeDiff = lAin.timestamp - lA.timestamp;
+                        int k = 5; //Multiply factor(meter)
+                        if (timeDiff > 0)
+                        {
+                            if (lA.getDistance(lAin) < k * timeDiff) {
+                                lAin.isChecked = true;
+                                continue;
+                            }
+                        }
+                        else
+                            continue;
+
+                    }                       
+                }
+            }
+        }
+
+        public class LocalAddress {
+            public string mac;
+            public int seq_n;
+            public long timestamp;
+            public double x;
+            public double y;
+            public bool isChecked;
+
+            public LocalAddress(string mac, int seq_n, long timestamp, double x, double y) {
+                this.mac = mac;
+                this.seq_n = seq_n;
+                this.timestamp = timestamp;
+                this.x = x;
+                this.y = y;
+                this.isChecked = false;
+            }
+            
+            public double getDistance(LocalAddress p2){
+                return Math.Sqrt(Math.Pow((this.x - p2.x), 2) + Math.Pow((this.y - p2.y), 2));
+            }
+
+        }
+
+
     }
 }

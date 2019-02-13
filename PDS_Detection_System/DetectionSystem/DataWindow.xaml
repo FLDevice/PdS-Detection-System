@@ -68,8 +68,8 @@
                         </Button>
                     </Grid>
                 </Grid>
-
             </TabItem>
+            
             <TabItem Header="Statistics">
                 <Grid Background="Black">
                     <lvc:CartesianChart Series="{Binding ColumnCollection}" Height="400" Width="500"
@@ -113,6 +113,33 @@
                              FontFamily="Courier New" FontSize="12"
                              VerticalAlignment="Top" HorizontalAlignment="Left"
                              Margin="19,280,0,0" Click="Update_chart_col_Click">
+                            Update
+                        </Button>
+                    </Grid>
+                </Grid>
+            </TabItem>
+            
+            <TabItem Header="Error">
+                <Grid Background="Black">
+                    <Grid Width="200" Margin="510,61,-15.6,30.6">
+                        <Label Grid.Column="0" Grid.Row="0"  Width ="150" VerticalAlignment="Top" HorizontalAlignment="Left" FontFamily="Courier New" 
+                            FontWeight="Bold" FontSize="12" Foreground="White" Margin="0,5,0,0">
+                            Start Time:
+                        </Label>
+                        <xctk:DateTimePicker Name="StartTimePickereErr" Margin="0,30,0,265"
+                                     Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss" Height="35" Width="155"  HorizontalAlignment="Left"/>
+                        <Label Grid.Column="0" Grid.Row="0"  Width ="150" VerticalAlignment="Top" HorizontalAlignment="Left" FontFamily="Courier New" 
+                            FontWeight="Bold" FontSize="12" Foreground="White" Margin="0,70,0,0">
+                            End Time:
+                        </Label>
+                        <xctk:DateTimePicker Name="StopTimePickerErr" Margin="0,95,0,200"
+                                     Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss" Height="35" Width="155"  HorizontalAlignment="Left"/>
+                        
+                        <Button Name="update_chart_err" Grid.Column="0" Grid.Row="0" Width ="100" Height="20"
+                             Foreground="Black"
+                             FontFamily="Courier New" FontSize="12"
+                             VerticalAlignment="Top" HorizontalAlignment="Left"
+                             Margin="19,160,0,0" Click="Update_chart_err_Click">
                             Update
                         </Button>
                     </Grid>
