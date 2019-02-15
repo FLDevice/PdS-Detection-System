@@ -21,7 +21,7 @@
                     IsReadOnly="True">
         </TextBox>
 
-        <TabControl HorizontalAlignment="Left" Height="450" Width="700" Margin="24,325,0,0" >
+        <TabControl HorizontalAlignment="Left" Width="700" Margin="139,300,0,61" >
             <TabItem Header="Devices's map" >
                 <Grid Background="Black" >
                     <lvc:CartesianChart Series="{Binding SeriesCollection}" Height="400" Width="500"
@@ -69,7 +69,7 @@
                     </Grid>
                 </Grid>
             </TabItem>
-            
+
             <TabItem Header="Statistics">
                 <Grid Background="Black">
                     <lvc:CartesianChart Series="{Binding ColumnCollection}" Height="400" Width="500"
@@ -118,7 +118,7 @@
                     </Grid>
                 </Grid>
             </TabItem>
-            
+
             <TabItem Header="Error">
                 <Grid Background="Black">
                     <Grid Width="200" Margin="510,61,-15.6,30.6">
@@ -134,7 +134,7 @@
                         </Label>
                         <xctk:DateTimePicker Name="StopTimePickerErr" Margin="0,95,0,200"
                                      Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss" Height="35" Width="155"  HorizontalAlignment="Left"/>
-                        
+
                         <Button Name="update_chart_err" Grid.Column="0" Grid.Row="0" Width ="100" Height="20"
                              Foreground="Black"
                              FontFamily="Courier New" FontSize="12"
@@ -147,7 +147,45 @@
             </TabItem>
         </TabControl>
 
-
+        <Grid HorizontalAlignment="Right" Height="563" VerticalAlignment="Bottom" Width="794" Margin="0,0,-23.4,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="105*"/>
+                <ColumnDefinition Width="297*"/>
+                <ColumnDefinition Width="391*"/>
+            </Grid.ColumnDefinitions>
+            <Slider Name="timeSlider" Margin="255.6,273,99.6,0" TickPlacement="BottomRight" Height="230" Visibility="Hidden" VerticalAlignment="Top" ValueChanged="Slider_ValueChanged" IsSnapToTickEnabled="True" Grid.Column="2" Orientation="Vertical"/>
+            <Canvas Name="mapOfDevices" HorizontalAlignment="Left" Margin="139.2,273,0,60" Width="400" Background="#FFF0F0F0" Grid.ColumnSpan="2" Height="230" Grid.Column="1"/>
+            <TabControl Grid.Column="1" HorizontalAlignment="Left" Height="230" Margin="139.2,43,0,0" VerticalAlignment="Top" Width="400" Grid.ColumnSpan="2">
+                <TabItem Header="Most Recent Position">
+                    <Grid Background="Black">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="46*"/>
+                            <ColumnDefinition Width="50*"/>
+                            <ColumnDefinition Width="49*"/>
+                            <ColumnDefinition Width="190*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button Content="Update Map" Margin="0.2,133,95.4,0" Click="Update_Click" Height="29" VerticalAlignment="Top" Grid.Column="2" Grid.ColumnSpan="2"/>
+                        <TextBlock HorizontalAlignment="Left" Margin="39,34,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Grid.ColumnSpan="4" Width="315" Foreground="White" TextAlignment="Center"><Run Text="If you want to track the position of a single device, enter"/><LineBreak/><Run Text="its"/><Run Text=" mac address in the text field below"/></TextBlock>
+                        <TextBox Name="macBox" Grid.ColumnSpan="2" Grid.Column="2" HorizontalAlignment="Left" Height="24" Margin="22.2,86,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="143" TextAlignment="Center"/>
+                    </Grid>
+                </TabItem>
+                <TabItem Header="Animation">
+                    <Grid Background="Black">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="63*"/>
+                            <ColumnDefinition Width="272*"/>
+                        </Grid.ColumnDefinitions>
+                        <Label Content="Begin" HorizontalAlignment="Left" Margin="33,22,0,0" VerticalAlignment="Top" Foreground="White"/>
+                        <Label Content="End" HorizontalAlignment="Left" Margin="33,53,0,0" VerticalAlignment="Top" Foreground="White"/>
+                        <Label Content="Granularity (Seconds)" HorizontalAlignment="Left" Margin="33,84,0,0" VerticalAlignment="Top" Foreground="White" Grid.ColumnSpan="2"/>
+                        <xctk:DateTimePicker Name="beginDateTime" HorizontalAlignment="Left" Margin="108.6,22,0,0" VerticalAlignment="Top" Width="172" Height="25" Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss" Grid.Column="1"/>
+                        <xctk:DateTimePicker Name="lastDateTime" HorizontalAlignment="Left" Margin="108.6,54,0,0" VerticalAlignment="Top" Width="172" Height="25" Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss" Grid.Column="1"/>
+                        <xctk:IntegerUpDown Name="granularityBox" Minimum="1" HorizontalAlignment="Left" Margin="108.6,84,0,0" VerticalAlignment="Top" Height="25" Width="154" Grid.Column="1"/>
+                        <Button Content="Generate Animation" Margin="36,144,98.2,0" Click="Animation_Click" VerticalAlignment="Top" Height="28" Grid.Column="1"/>
+                    </Grid>
+                </TabItem>
+            </TabControl>
+        </Grid>
 
         <!--
             <lvc:CartesianChart LegendLocation="Bottom" Name="scatterPlot" Height="400" Width="500"
@@ -174,7 +212,6 @@
                 
             </lvc:CartesianChart>
             -->
-        <Button Content="Go to Map" HorizontalAlignment="Left" Margin="1240,538,0,0" VerticalAlignment="Top" Width="75" Click="GoToMapClick"/>
 
         <Grid.Background>
             <ImageBrush ImageSource="app_bg.png"/>
