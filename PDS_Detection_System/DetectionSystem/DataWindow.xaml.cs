@@ -136,10 +136,6 @@ namespace DetectionSystem
             // We need to determine what is the scale of the map.
             try
             {
-                DBconnection = new MySqlConnection();
-                DBconnection.ConnectionString = "server=localhost; database=pds_db; uid=pds_user; pwd=password";
-                DBconnection.Open();
-
                 MySqlCommand cmm = new MySqlCommand(
                     "SELECT MAX(x), MIN(x), MAX(y), MIN(y), COUNT(*) FROM ESP", DBconnection);
                 MySqlDataReader dataReader = cmm.ExecuteReader();
@@ -170,11 +166,9 @@ namespace DetectionSystem
                 //close Data Reader
                 dataReader.Close();
                 cmm.Dispose();
-                DBconnection.Close();
             }
             catch (Exception exc)
             {
-                DBconnection.Close();
                 return;
             }
 
@@ -565,38 +559,23 @@ namespace DetectionSystem
 
             if (CheckMacAddress(macBox.Text))
                 selectQuery += "AND d.mac = '" + macBox.Text + "'";
-
+            
             try
             {
-                DBconnection = new MySqlConnection();
-                DBconnection.ConnectionString = "server=localhost; database=pds_db; uid=pds_user; pwd=password";
-                DBconnection.Open();
+                MySqlCommand cmm = new MySqlCommand(selectQuery, DBconnection);
+                MySqlDataReader dataReader = cmm.ExecuteReader();
 
-                try
+                while (dataReader.Read())
                 {
-                    MySqlCommand cmm = new MySqlCommand(selectQuery, DBconnection);
-                    MySqlDataReader dataReader = cmm.ExecuteReader();
-
-                    while (dataReader.Read())
-                    {
-                        DrawDevice(dataReader.GetString(0), dataReader.GetDouble(1), dataReader.GetDouble(2));
-                    }
-
-                    //close Data Reader
-                    dataReader.Close();
-                }
-                catch (Exception exc)
-                {
-                    System.Windows.MessageBox.Show("The following error occurred: \n\n" + exc.Message);
+                    DrawDevice(dataReader.GetString(0), dataReader.GetDouble(1), dataReader.GetDouble(2));
                 }
 
-                DBconnection.Close();
+                //close Data Reader
+                dataReader.Close();
             }
             catch (Exception exc)
             {
                 System.Windows.MessageBox.Show("The following error occurred: \n\n" + exc.Message);
-                DBconnection.Close();
-                this.Close();
             }
         }
 
@@ -618,7 +597,12 @@ namespace DetectionSystem
             if (beginDateTime.Text == null || lastDateTime.Text == null || granularityBox.Text == null)
                 return;
 
-            ClearMap();
+            long timeFrames = (unixLast - unixBegin) / granularity;
+            // If the previous iteration occurred, clear the map
+            if (timeFrames <= 100)
+            {
+                ClearMap();
+            }
 
             DateTime begin = Convert.ToDateTime(beginDateTime.Text);
             DateTimeOffset beginOffset = new DateTimeOffset(begin);
@@ -629,54 +613,49 @@ namespace DetectionSystem
             granularity = Convert.ToInt64(granularityBox.Text);
 
             if (unixBegin >= unixLast)
+            {
+                output_box.AppendText("The begin time must come before the end time.");
                 return;
-
-            try
-            {
-                DBconnection = new MySqlConnection();
-                DBconnection.ConnectionString = "server=localhost; database=pds_db; uid=pds_user; pwd=password";
-                DBconnection.Open();
-
-                for (long currentTs = unixBegin; currentTs <= unixLast; currentTs += granularity)
-                {
-                    int i = 1;
-
-                    try
-                    {
-                        MySqlCommand cmm = new MySqlCommand(
-                            "SELECT d.mac, d.x, d.y, d.timestamp "
-                            + "FROM devices d "
-                            + "JOIN( "
-                            + "SELECT mac, MAX(timestamp) timestamp, MAX(dev_id) as max_id "
-                            + "FROM devices "
-                            + "GROUP BY mac "
-                            + ") x ON(x.max_id = d.dev_id) "
-                            + "WHERE UNIX_TIMESTAMP(d.timestamp) > " + Convert.ToString(currentTs) + " - 120 "
-                            + "AND UNIX_TIMESTAMP(d.timestamp) <= " + Convert.ToString(currentTs), DBconnection);
-                        MySqlDataReader dataReader = cmm.ExecuteReader();
-
-                        while (dataReader.Read())
-                        {
-                            DrawDevice("device" + i + "_" + Convert.ToString(currentTs), dataReader.GetString(0), dataReader.GetDouble(1), dataReader.GetDouble(2));
-                            i++;
-                        }
-
-                        //close Data Reader
-                        dataReader.Close();
-                    }
-                    catch (Exception exc)
-                    {
-                        System.Windows.MessageBox.Show("The following error occurred: \n\n" + exc.Message);
-                    }
-                }
-
-                DBconnection.Close();
             }
-            catch (Exception exc)
+
+            timeFrames = (unixLast - unixBegin) / granularity;
+            if ( timeFrames > 100)
             {
-                System.Windows.MessageBox.Show("The following error occurred: \n\n" + exc.Message);
-                DBconnection.Close();
-                this.Close();
+                output_box.AppendText("Too many time frames to compute. " + timeFrames + "\n");
+                return;
+            }
+
+            for (long currentTs = unixBegin; currentTs <= unixLast; currentTs += granularity)
+            {
+                int i = 1;
+
+                try
+                {
+                    MySqlCommand cmm = new MySqlCommand(
+                        "SELECT d.mac, d.x, d.y, d.timestamp "
+                        + "FROM devices d "
+                        + "JOIN( "
+                        + "SELECT mac, MAX(timestamp) timestamp, MAX(dev_id) as max_id "
+                        + "FROM devices "
+                        + "GROUP BY mac "
+                        + ") x ON(x.max_id = d.dev_id) "
+                        + "WHERE UNIX_TIMESTAMP(d.timestamp) > " + Convert.ToString(currentTs) + " - 120 "
+                        + "AND UNIX_TIMESTAMP(d.timestamp) <= " + Convert.ToString(currentTs), DBconnection);
+                    MySqlDataReader dataReader = cmm.ExecuteReader();
+
+                    while (dataReader.Read())
+                    {
+                        DrawDevice("device" + i + "_" + Convert.ToString(currentTs), dataReader.GetString(0), dataReader.GetDouble(1), dataReader.GetDouble(2));
+                        i++;
+                    }
+
+                    //close Data Reader
+                    dataReader.Close();
+                }
+                catch (Exception exc)
+                {
+                    System.Windows.MessageBox.Show("The following error occurred: \n\n" + exc.Message);
+                }
             }
 
             SetUpSlider();
@@ -688,7 +667,6 @@ namespace DetectionSystem
             mapOfDevices.Children.Clear();
             for (long currentTs = unixBegin; currentTs <= unixLast; currentTs += granularity)
             {
-                Console.WriteLine("CurrentTS " + currentTs);
                 int i = 0;
                 bool exit = false;
                 string name;
