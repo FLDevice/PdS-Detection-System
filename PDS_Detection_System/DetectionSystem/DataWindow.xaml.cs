@@ -49,6 +49,8 @@ namespace DetectionSystem
             this.args = args;
             this.fileN = fileN;
 
+            AppDomain.CurrentDomain.ProcessExit += new EventHandler(OnProcessExit);
+
             Closing += OnWindowClosing;
             output_box = (TextBox)this.FindName("stdout2");
             StartServer();
@@ -150,6 +152,22 @@ namespace DetectionSystem
             }
             DBconnection.Close();
             if(ServerPipe.IsConnected)
+                ServerPipe.Close();
+        }
+
+        /** Kill TCPServer if the process terminate in an other way */
+        public void OnProcessExit(object sender, EventArgs e) {
+            //pipe_thread_stop = true;
+            if (is_running)
+            {
+                // if already terminated do nothing
+                if (TCPServer.ProcessName.Length == 0) return;
+
+                TCPServer.Kill();
+                TCPServer.WaitForExit();
+            }
+            DBconnection.Close();
+            if (ServerPipe.IsConnected)
                 ServerPipe.Close();
         }
         
@@ -334,7 +352,7 @@ namespace DetectionSystem
                 cmm = new MySqlCommand("SELECT mac FROM devices"
                                     + " WHERE timestamp BETWEEN '" + timestart + "' AND '" + timestop + "'"
                                     + " GROUP BY mac"
-                                    + " ORDER BY count(*) DESC LIMIT " + devices_num, DBconnection);
+                                    + " ORDER BY count(*) DESC, mac LIMIT " + devices_num, DBconnection);
 
 
                 MySqlDataReader r = cmm.ExecuteReader();
@@ -371,7 +389,7 @@ namespace DetectionSystem
                                         + " FROM devices d JOIN(SELECT mac FROM devices"
                                         +                     " WHERE timestamp BETWEEN '" + timestart + "' AND '" + timestop + "'"
                                         +                     " GROUP BY mac"
-                                        +                     " ORDER BY count(*) DESC LIMIT " + devices_num 
+                                        +                     " ORDER BY count(*) DESC, mac LIMIT " + map.Count
                                         + ") x ON(x.mac = d.mac)"
                                         + " WHERE timestamp BETWEEN '" + timestart + "' AND '" + timestop + "'"
                                         + " GROUP BY groupTime, d.mac", DBconnection);
