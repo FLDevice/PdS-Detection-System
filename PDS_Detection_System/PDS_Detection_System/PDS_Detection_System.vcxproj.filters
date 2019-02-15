@@ -77,4 +77,7 @@
       <Filter>File di risorse</Filter>
     </ResourceCompile>
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="rssi_div.txt" />
+  </ItemGroup>
 </Project>

@@ -80,7 +80,6 @@ void ProbePacket::storeInDB(mysqlx::Table packetTable, mysqlx::Table localPacket
 	std::string ssid_to_store = ssidStream.str();
 
 	if (!checkSSID(ssid_to_store)) {
-		printf("\n\n\n\n\nHAHA! I've finally defeated you, bastard!\n\n\n\n\n\n\n");
 		return;
 	}
 
@@ -107,7 +106,7 @@ void ProbePacket::storeInDB(mysqlx::Table packetTable, mysqlx::Table localPacket
 
 	}
 	catch(...) {
-		printf("\n\n\n\n\n\nThis dumbass is still fucking around...\n\n\n\n\n\n\n");
+		return;
 	}
 }
 

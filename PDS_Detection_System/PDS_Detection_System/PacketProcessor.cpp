@@ -1,6 +1,10 @@
 #include "stdafx.h"
 #include "PacketProcessor.h"
+#include <iostream>
+#include <iomanip>
+#include <fstream>
 
+std::string fileUrl = "rssi_div.txt";
 std::vector<int> x;
 std::vector<int> y;
 std::vector<double> d;
@@ -8,12 +12,42 @@ std::vector<double> d;
 PacketProcessor::PacketProcessor(int count)
 {
 	esp_number = count;
+	readRssiParam();
+}
+
+void PacketProcessor::readRssiParam() {
+	std::ifstream inFile;
+	int count = 1;
+	double x;
+
+	inFile.open(fileUrl);
+	if (!inFile) {
+		std::cout << "Unable to open file";
+		exit(1); // terminate with error
+	}
+
+	while (inFile >> x) {
+		switch (count)
+		{
+		case 1:
+			rssiAtOneMeter = x;
+			break;
+		case 2:
+			rssiDiv = x;
+			break;
+		default:
+			break;
+		}
+
+		count++;
+	}
+
+	inFile.close();
 }
 
 //Method that estimates the distance (in meters) starting from the RSSI
 double PacketProcessor::getDistanceFromRSSI(double rssi) {
-	double rssiAtOneMeter = -55;
-	double d = pow(10, (rssiAtOneMeter - rssi) / 22);
+	double d = pow(10, (rssiAtOneMeter - rssi) / rssiDiv);
 	return d;
 }
 

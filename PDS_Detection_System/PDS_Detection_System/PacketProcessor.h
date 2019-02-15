@@ -15,6 +15,7 @@ class PacketProcessor
 private:
 
 	int esp_number;
+	double rssiAtOneMeter, rssiDiv;
 
 	CoverageArea ca;
 
@@ -25,6 +26,8 @@ private:
 	double static meanSquareError(const column_vector& m);
 
 	void trilaterate(double * pos_x, double * pos_y);
+
+	void readRssiParam();
 
 public:
 
