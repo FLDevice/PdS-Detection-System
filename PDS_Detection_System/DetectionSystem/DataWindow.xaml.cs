@@ -220,6 +220,8 @@ namespace DetectionSystem
 
                 TCPServer.Kill();
                 TCPServer.WaitForExit();
+
+                is_running = false;
             }
             DBconnection.Close();
             if(ServerPipe.IsConnected)
@@ -236,6 +238,8 @@ namespace DetectionSystem
 
                 TCPServer.Kill();
                 TCPServer.WaitForExit();
+
+                is_running = false;
             }
             DBconnection.Close();
             if (ServerPipe.IsConnected)
