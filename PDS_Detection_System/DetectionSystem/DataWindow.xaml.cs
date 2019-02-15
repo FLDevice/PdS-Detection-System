@@ -38,6 +38,10 @@ namespace DetectionSystem
         private string args;
 
         public static TextBox output_box;
+        Label macLabel;
+        Label devicesLabel;
+        Label riskLabel;
+
         private string[] _LabelsDev;
         private string[] _ColumnLabels;
         protected bool is_running = false;
@@ -51,6 +55,9 @@ namespace DetectionSystem
 
             Closing += OnWindowClosing;
             output_box = (TextBox)this.FindName("stdout2");
+            macLabel = (Label)this.FindName("mac_label");
+            devicesLabel = (Label)this.FindName("device_label");
+            riskLabel = (Label)this.FindName("risk_label");
             StartServer();
 
             /*** Pipe handle Function ***/
@@ -494,28 +501,49 @@ namespace DetectionSystem
         }
 
         private void Update_chart_err_Click(object sender, RoutedEventArgs e)
-        {
+        { 
+
             string timestart = StartTimePickereErr.Text;
             string timestop = StopTimePickerErr.Text;
             List<LocalAddress> AddrList = new List<LocalAddress>();
+            List<double> errors = new List<double>();
+
+            int total_address = 0;
+            int devices_count = 0;
+            double err_seq_n = 0;
+            double err_dist = 0;
+            double local_error_avg = 0;
+            double error_avg = 0;
 
             MySqlCommand cmm = null;
+
             try
             {
+                cmm = new MySqlCommand("SELECT count(distinct(mac)) FROM local_macs " +
+                                       "WHERE timestamp BETWEEN '" + timestart + "' AND '" + timestop + "'",
+                                       DBconnection);
+                MySqlDataReader r = cmm.ExecuteReader();
+                while (r.Read())
+                {
+                    total_address = Convert.ToInt32(r[0]);
+                }
+                cmm.Dispose();
+           
                 // Initialize the graph structure and clear existing data
                 cmm = new MySqlCommand("SELECT mac, x, y, m.timestamp, seq_ctl from local_macs AS m " +
                                         "JOIN (local_packets AS p) ON (m.mac = p.addr) " +
-                                        "WHERE timestamp BETWEEN '" + timestart + "' AND '" + timestop + "'"+
+                                        "WHERE m.timestamp BETWEEN '" + timestart + "' AND '" + timestop + "'"+
                                         "GROUP BY m.timestamp, seq_ctl " +
                                         "ORDER BY m.timestamp", DBconnection);
-                MySqlDataReader r = cmm.ExecuteReader();
-                while (r.Read())
-                {                    
-                    LocalAddress lA = new LocalAddress(r[0].ToString(), 
-                                                       Convert.ToInt32(r[4].ToString()), 
-                                                       Convert.ToInt64(r[3]), 
-                                                       Convert.ToDouble(r[1]), 
-                                                       Convert.ToDouble(r[2])
+                MySqlDataReader r1 = cmm.ExecuteReader();
+
+                while (r1.Read())
+                {
+                    LocalAddress lA = new LocalAddress(Convert.ToString(r1[0]), 
+                                                       int.Parse(Convert.ToString(r1[4]), System.Globalization.NumberStyles.HexNumber),
+                                                       Convert.ToInt64(Convert.ToDateTime(r1[3]).Ticks),
+                                                       Convert.ToDouble(r1[1]), 
+                                                       Convert.ToDouble(r1[2])
                                         );
                     AddrList.Add(lA);
                 }
@@ -528,39 +556,68 @@ namespace DetectionSystem
                 output_box.AppendText("" + ex.Message);
                 Console.WriteLine(ex.StackTrace);
             }
+
+
             // Versione semplice senza l'associazione del numero di mac ad ogni device
-            int devices_count = 0;
-            foreach (LocalAddress lA in AddrList) {
-                if (lA.isChecked)
-                    continue;
-                lA.isChecked = true;
-                devices_count++;
-                foreach (LocalAddress lAin in AddrList) {
-                    if (lAin == lA)
-                        continue;
-                    if (!lAin.isChecked) {
-                        if ((lA.timestamp == lAin.timestamp) && (lA.mac != lAin.mac))
-                            continue;
-                        if ((lAin.seq_n > lA.seq_n) && (lAin.seq_n - lA.seq_n < 0x500))
-                        {
+            for (int i = 0; i < AddrList.Count; i++) {
+                LocalAddress lA = AddrList.ElementAt<LocalAddress>(i);
+
+                TimeSpan lASpan = new TimeSpan(lA.timestamp);
+                double lA_seconds = lASpan.TotalSeconds;
+
+                if (!lA.isChecked) {
+
+                    lA.isChecked = true;
+                    devices_count++;
+
+                    for (int j = i+1; j < AddrList.Count; j++) {
+                        LocalAddress lAin = AddrList.ElementAt<LocalAddress>(j);
+                        if (lAin.mac.Equals(lA.mac)) {
                             lAin.isChecked = true;
                             continue;
                         }
-                        long timeDiff = lAin.timestamp - lA.timestamp;
-                        int k = 5; //Multiply factor(meter)
-                        if (timeDiff > 0)
-                        {
-                            if (lA.getDistance(lAin) < k * timeDiff) {
-                                lAin.isChecked = true;
-                                continue;
+                        TimeSpan lAinSpan = new TimeSpan(lAin.timestamp);
+                        double lAin_seconds = lAinSpan.TotalSeconds;
+
+                        if (!lAin.isChecked) {
+                            double timeDiff = lAin_seconds - lA_seconds;
+                            int k = 5; //Multiply factor(meter)
+                            if ((lAin.seq_n > lA.seq_n) && (lAin.seq_n - lA.seq_n < 1280)) { // 1280 = 0x500
+                                err_seq_n = (double)(lAin.seq_n - lA.seq_n) / 1280;
+                                if (timeDiff >= 0) {
+                                    if (lA.getDistance(lAin) < k * timeDiff) {
+                                        err_dist = (double)lA.getDistance(lAin) / (k * timeDiff);
+
+                                        local_error_avg = (double)(err_seq_n + err_dist) / 2;
+                                        errors.Add(local_error_avg);
+                                        
+                                        lAin.isChecked = true;
+                                    }
+                                }
                             }
                         }
-                        else
-                            continue;
-
-                    }                       
+                    }
                 }
             }
+
+
+            double tot = 0;
+            foreach (double error in errors) {
+                tot = tot + error;
+            }
+            error_avg = (double)tot / errors.Count;
+
+            string mac_num_msg = "Local MAC addresses detected:\t " + total_address + "\n";
+            string disp_num_msg = "Real devices estimation:\t " + devices_count + "\n";
+            string risk_msg = "";
+            if (errors.Count == 0)
+                risk_msg = "Estimation risk:\t " + 0 + " %\n";
+            else
+                risk_msg = "Estimation risk:\t " + (error_avg * 100).ToString("F1") + " %\n";
+
+            macLabel.Content = mac_num_msg;
+            devicesLabel.Content = disp_num_msg;
+            riskLabel.Content = risk_msg;
         }
 
         public class LocalAddress {
