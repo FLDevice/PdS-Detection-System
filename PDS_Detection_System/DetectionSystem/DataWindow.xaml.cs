@@ -59,6 +59,8 @@ namespace DetectionSystem
 
         private List<ESP> eSPs;
 
+        private int espNumber;
+
         // Information needed for the animation
         private long unixBegin = 0, unixLast = 0, granularity = 100;
 
@@ -66,8 +68,17 @@ namespace DetectionSystem
         public DataWindow(string args, string fileN)
         {
             InitializeComponent();
+
+            /* Map initialization */
+            isInitialized = false;
+
             this.args = args;
             this.fileN = fileN;
+
+            string[] tokens = args.Split(' ');
+            espNumber = Convert.ToInt32(tokens[1]);
+            Console.WriteLine(espNumber);
+
 
             AppDomain.CurrentDomain.ProcessExit += new EventHandler(OnProcessExit);
 
@@ -109,10 +120,6 @@ namespace DetectionSystem
                 output_box.ScrollToEnd();
                 cmm.Dispose();
             }
-
-            /* Map initialization */
-            isInitialized = false;
-            InitializeMap();
             
             /*** BASIC LINE CHART ***/
             SeriesCollection = new SeriesCollection
@@ -126,7 +133,6 @@ namespace DetectionSystem
 
             /*** BASIC COLUMN CHART ***/
             ColumnCollection = new SeriesCollection {};
-            
         }
 
         private void InitializeMap() {
@@ -151,6 +157,13 @@ namespace DetectionSystem
 
                 //close Data Reader
                 dataReader.Close();
+
+                if(espCount != espNumber)
+                {
+                    cmm.Dispose();
+                    return;
+                }
+
 
                 cmm = new MySqlCommand(
                     "SELECT esp_id, mac, x, y FROM ESP", DBconnection);
