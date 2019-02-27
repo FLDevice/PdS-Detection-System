@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <iostream>
 #include <sstream> 
-#include  <iomanip>
+#include <iomanip>
 
 #include <mysqlx/xdevapi.h>
 
@@ -29,5 +29,6 @@ public:
 
 	void print();
 	void print(long int last_update); // ADDED
-	void storeInDB(mysqlx::Table packetTable, long int last_update, uint8_t espid); // ADDED
+	void storeInDB(mysqlx::Table packetTable, mysqlx::Table localPacketsTable, long int last_update, uint8_t espid); // ADDED
+	bool checkSSID(const std::string& string);
 };

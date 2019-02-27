@@ -5,18 +5,22 @@ std::vector<int> x;
 std::vector<int> y;
 std::vector<double> d;
 */
-TCPServer::TCPServer() {
-	std::cout << " === TCPServer version 0.1 ===" << std::endl;
+TCPServer::TCPServer(long int should_erase_db, long int espn, std::vector<long int> vec) {
+	std::cout << " === TCPServer version 0.5 ===" << std::endl;
+	try {
+		TCPS_pipe_send("TCPServer");
+	}
+	catch (std::exception& e) {
+		std::cout << e.what() << std::endl;
+		throw;
+	}
+	setupDB(should_erase_db);
 
-	setupDB();
-	//User inputs ESP32 amount   
 	while (1) {
-		std::cout << "Insert how many ESP32 will join the system: ";
 
 		try {
-			esp_number = Utilities::getIntFromInput();
-			std::cout << std::endl;
-
+		
+			esp_number = espn;
 			if (esp_number > 0 && esp_number <= MAX_ESP32_NUM)
 				break;
 			else {
@@ -47,7 +51,7 @@ TCPServer::TCPServer() {
 			TCPS_socket();
 			TCPS_bind();
 			TCPS_listen();
-			TCPS_ask_participation();
+			TCPS_ask_participation(vec, should_erase_db);
 			TCPS_close_listen_socket();
 
 			TCPS_initialize();
@@ -90,6 +94,23 @@ TCPServer::TCPServer() {
 	}
 }
 
+void TCPServer::TCPS_pipe_send(const char* message) {
+
+	namedPipe = CreateFile(PIPENAME, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+	if (namedPipe == INVALID_HANDLE_VALUE) {
+		throw std::exception("couldn't open pipe");
+	}
+
+	char mybuffer[10];
+	DWORD bytesWritten;
+	strcpy(mybuffer, message);
+	BOOL r = WriteFile(namedPipe, mybuffer, strlen(mybuffer), &bytesWritten, NULL);
+	if (bytesWritten != strlen(mybuffer)) {
+		throw std::exception("failed writing on pipe");
+	}
+	CloseHandle(namedPipe);
+}
+
 void TCPServer::TCPS_initialize() {
 
 	if (aresult) freeaddrinfo(aresult);
@@ -127,7 +148,7 @@ void TCPServer::TCPS_listen() {
 	}
 }
 
-void TCPServer::TCPS_ask_participation() {
+void TCPServer::TCPS_ask_participation(std::vector<long int> vec, long int should_erase_db) {
 
 	std::cout << "Please unplug all the ESP32 from the energy source. You will plug them one at a time as requested." << std::endl << std::endl;
 
@@ -135,17 +156,16 @@ void TCPServer::TCPS_ask_participation() {
 	std::thread threads[MAX_ESP32_NUM];
 
 	// for each ESP32 ask for its position in the space and its INIT packet
-	for (int i = 0; i < esp_number; i++) {
+	for (int i = 0; i < esp_number*2; i+=2) {
 		int posx, posy;
 		uint8_t mac[6];
 
 		try {
-			std::cout << "ESP32 number " << i << ": insert its spacial position." << std::endl;
-			std::cout << "X coordinate: ";
-			posx = Utilities::getIntFromInput();
+			posx = vec[i], posy = vec[i+1];
+			std::cout << "ESP32 number " << i/2 << std::endl;
+			std::cout << "X coordinate: " << posx;
 
-			std::cout << std::endl << "Y coordinate: ";
-			posy = Utilities::getIntFromInput();
+			std::cout << std::endl << "Y coordinate: " << posy;
 
 			std::cout << std::endl;
 		}
@@ -201,8 +221,9 @@ void TCPServer::TCPS_ask_participation() {
 					free(recvbuf);
 
 					// arguments: id, mac address, x pos, y pos, ready port for socket creation
-					ESP32 espdata(i, mac, posx, posy, port);
-					espdata.store_esp();
+					ESP32 espdata(i/2, mac, posx, posy, port);
+					if (should_erase_db)
+						espdata.store_esp();
 					esp_list.push_back(espdata);
 
 					// return to the outer for loop
@@ -224,7 +245,7 @@ void TCPServer::TCPS_ask_participation() {
 
 		// Assign to a thread the job to handle a new socket for ready packets.
 		try {
-			threads[i] = std::thread(&TCPServer::TCPS_ready_channel, this, i);
+			threads[i/2] = std::thread(&TCPServer::TCPS_ready_channel, this, i/2);
 		}
 		catch (std::exception& e) {
 			std::cout << e.what() << std::endl;
@@ -280,9 +301,9 @@ void TCPServer::TCPS_ready_channel(int esp_id) {
 			char recvbuf[5];
 			int res = 0;
 			
-			for (int i = 0; i < 5; i = i + res)
+			for (int i = 0; i < 5; i = i + res){
 				res = recv(c_sock, recvbuf + i, 5 - i, 0);
-
+			}
 
 			if (res > 0) {
 				// if it actually is a READY message
@@ -416,10 +437,8 @@ void TCPServer::TCPS_service(SOCKET client_socket) {
 				std::cout << "Bytes received: " << result << ", buffer contains:" << std::endl;
 				std::cout << "Buffer size: " << recvbuflen << std::endl;
 				std::cout << "Current Time: " << std::time(NULL) << ", passed since last update: " << esp_list[esp_id].get_update_interval() << std::endl; // ADDED
-
-																																						   // store and print them
+																													   // store and print them
 				storePackets(count, esp_id, recvbuf);
-
 
 				// notify an esp has sent its data
 				{
@@ -427,7 +446,6 @@ void TCPServer::TCPS_service(SOCKET client_socket) {
 					esp_to_wait--;
 					triang_cvar.notify_all();
 				}
-
 
 				// just send back a packet to the client as ack
 				int send_result = send(client_socket, recvbuf, PACKET_SIZE, 0);
@@ -496,55 +514,97 @@ void TCPServer::TCPS_shutdown(SOCKET client_socket) {
 *
 * !!! Currently everytime the program is run the database is reinitialized.
 */
-void TCPServer::setupDB()
+void TCPServer::setupDB(long int should_erase_db)
 {
-	mysqlx::Session session("localhost", 33060, "pds_user", "password");
+	if (should_erase_db == 0)
+		return;
 
-	std::string quoted_name = std::string("`pds_db`.`Packet`");
+	try
+	{
+		mysqlx::Session session("localhost", 33060, "pds_user", "password");
 
-	session.sql(std::string("DROP TABLE IF EXISTS") + quoted_name).execute();
-	std::string create = "CREATE TABLE ";
-	create += quoted_name;
-	create += " (id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, ";
-	create += " esp_id INT UNSIGNED, ";
-	create += " timestamp TIMESTAMP, ";
-	create += " channel TINYINT UNSIGNED, ";
-	create += " seq_ctl VARCHAR(4), ";
-	create += " rssi TINYINT, ";
-	create += " addr VARCHAR(32), ";
-	create += " ssid VARCHAR(32), ";
-	create += " crc VARCHAR(8), ";
-	create += " hash INT UNSIGNED, ";
-	create += " to_be_deleted INT )";							// ADDED
+		std::string quoted_name = std::string("`pds_db`.`Packet`");
 
-	session.sql(create).execute();
+		session.sql(std::string("DROP TABLE IF EXISTS") + quoted_name).execute();
+		std::string create = "CREATE TABLE ";
+		create += quoted_name;
+		create += " (id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, ";
+		create += " esp_id INT UNSIGNED, ";
+		create += " timestamp TIMESTAMP, ";
+		create += " channel TINYINT UNSIGNED, ";
+		create += " seq_ctl VARCHAR(4), ";
+		create += " rssi TINYINT, ";
+		create += " addr VARCHAR(32), ";
+		create += " ssid VARCHAR(32), ";
+		create += " crc VARCHAR(8), ";
+		create += " hash INT UNSIGNED, ";
+		create += " to_be_deleted INT )";							// ADDED
 
-	quoted_name = std::string("`pds_db`.`ESP`");
+		session.sql(create).execute();
 
-	session.sql(std::string("DROP TABLE IF EXISTS") + quoted_name).execute();
-	create = "CREATE TABLE ";
-	create += quoted_name;
-	create += " (mac VARCHAR(32) NOT NULL PRIMARY KEY,";
-	create += " esp_id INT NOT NULL,";							// ADDED
-	create += " x INT NOT NULL,";
-	create += " y INT NOT NULL)";
+		quoted_name = std::string("`pds_db`.`ESP`");
 
-	session.sql(create).execute();
+		session.sql(std::string("DROP TABLE IF EXISTS") + quoted_name).execute();
+		create = "CREATE TABLE ";
+		create += quoted_name;
+		create += " (mac VARCHAR(32) NOT NULL PRIMARY KEY,";
+		create += " esp_id INT NOT NULL,";							// ADDED
+		create += " x INT NOT NULL,";
+		create += " y INT NOT NULL)";
 
-	//														***DEVICES TABLE ADDED***
-	quoted_name = std::string("`pds_db`.`Devices`");
+		session.sql(create).execute();
 
-	session.sql(std::string("DROP TABLE IF EXISTS") + quoted_name).execute();
-	create = "CREATE TABLE ";
-	create += quoted_name;
-	create += " (dev_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, ";
-	create += " mac VARCHAR(32) NOT NULL,";
-	create += " x INT NOT NULL,";
-	create += " y INT NOT NULL,";
-	create += " timestamp TIMESTAMP)";
+		//														***DEVICES TABLE ADDED***
+		quoted_name = std::string("`pds_db`.`Devices`");
 
-	session.sql(create).execute();
+		session.sql(std::string("DROP TABLE IF EXISTS") + quoted_name).execute();
 
+		create = "CREATE TABLE ";
+		create += quoted_name;
+		create += " (dev_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, ";
+		create += " mac VARCHAR(32) NOT NULL,";
+		create += " x FLOAT NOT NULL,";
+		create += " y FLOAT NOT NULL,";
+		create += " timestamp TIMESTAMP)";
+
+		session.sql(create).execute();
+
+		//														*** LOCAL MAC DEVICES TABLE ADDED ***
+		quoted_name = std::string("`pds_db`.`Local_Macs`");
+
+		session.sql(std::string("DROP TABLE IF EXISTS") + quoted_name).execute();
+
+		create = "CREATE TABLE ";
+		create += quoted_name;
+		create += " (dev_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, ";
+		create += " mac VARCHAR(32) NOT NULL,";
+		create += " x FLOAT NOT NULL,";
+		create += " y FLOAT NOT NULL,";
+		create += " timestamp TIMESTAMP)";
+
+		session.sql(create).execute();
+
+		//											*** PACKETS WITH LOCAL SOURCE MAC ADDRESS ADDED ***
+	    quoted_name = std::string("`pds_db`.`Local_Packets`");
+
+		session.sql(std::string("DROP TABLE IF EXISTS") + quoted_name).execute();
+		create = "CREATE TABLE ";
+		create += quoted_name;
+		create += " (id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, ";
+		create += " addr VARCHAR(32), ";
+		create += " timestamp TIMESTAMP, ";
+		create += " seq_ctl VARCHAR(4), ";
+		create += " to_be_deleted INT )";
+
+		session.sql(create).execute();
+
+	}
+	catch (std::exception &err) {
+		std::cout << "The following error occurred: " << err.what() << std::endl;
+
+		// Exit with error code
+		//exit(1);
+	}
 	std::cout << "Database correctly initialized." << std::endl;
 }
 
@@ -559,14 +619,14 @@ void TCPServer::storePackets(int count, int esp_id, char* recvbuf) {
 
 			// Accessing the packet table
 			mysqlx::Table packetTable = myDb.getTable("Packet");
+			mysqlx::Table localPacketsTable = myDb.getTable("Local_Packets");
 
 			for (int i = 0; i < count; i++) {
 				ProbePacket pp;
 				memcpy(&pp, recvbuf + (i*PACKET_SIZE), PACKET_SIZE);
-				pp_vector.push(pp);
-				//printf("%d \t", i);
-				//pp.print(); // MODIFIED
-				pp.storeInDB(packetTable, time_since_last_update, esp_id);
+
+				//pp_vector.push(pp);
+				pp.storeInDB(packetTable, localPacketsTable, time_since_last_update, esp_id);
 			}
 		}
 		catch (std::exception &err) {
@@ -596,226 +656,6 @@ int TCPServer::get_esp_instance(uint8_t* mac) {
 }
 
 /***************************************   T   R   I   A   N   G   U   L   A   T   I   O   N   ***************************************/
-/*
-//Method that estimates the distance (in meters) starting from the RSSI
-double TCPServer::getDistanceFromRSSI(double rssi) {
-	double rssiAtOneMeter = -59;
-	double d = pow(10, (rssiAtOneMeter - rssi) / 20);
-	return d;
-}
-
-//Method that calculates the distance among two points (x1,y1) , (x2,y2)
-double dist(double x1, double y1, double x2, double y2) {
-	return sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2));
-}
-
-//Method that defines the Mean Square Error (MSE) function
-double meanSquareError(const column_vector& m) {
-	const double pos_x = m(0);
-	const double pos_y = m(1);
-
-	double mse = 0;
-	int N = d.size();
-
-	for (int i = 0; i < N; i++)
-		mse = mse + pow(d[i] - dist(pos_x, pos_y, x[i], y[i]), 2);
-
-	mse = mse / N;
-
-	return mse;
-}
-
-//Method that finds the min (x,y) of the function meanSquareError ==> the (x,y) point will be the position of the device
-void TCPServer::getCoordinates(int * pos_x, int * pos_y) {
-
-	try {
-		column_vector starting_point = { 0, 0 };
-
-		dlib::find_min_using_approximate_derivatives(dlib::bfgs_search_strategy(),
-			dlib::objective_delta_stop_strategy(1e-7),
-			meanSquareError,
-			starting_point, -1);
-
-		*pos_x = starting_point(0);
-		*pos_y = starting_point(1);
-
-		//std::cout << "   Coordinates: X=" << *pos_x << ", Y=" << *pos_y << std::endl << std::endl;
-	}
-	catch (std::exception& e) {
-		std::cout << e.what() << std::endl;
-	}
-}
-
-void TCPServer::triangulation(int first_id, int last_id) {
-
-	int pos_x = -1;
-	int pos_y = -1;
-
-	try {
-		mysqlx::Session session("localhost", 33060, "pds_user", "password");
-
-		try {
-			mysqlx::Schema myDb = session.getSchema("pds_db");
-
-			mysqlx::Table packetTable = myDb.getTable("Packet");
-			mysqlx::Table espTable = myDb.getTable("ESP");
-			mysqlx::Table devicesTable = myDb.getTable("Devices");
-
-			mysqlx::RowResult myResult;
-			mysqlx::Row row;
-
-			//Get the perimeter min(x), max(x), min(y), max(y)
-			myResult = espTable.select("MIN(x)").execute();
-			row = myResult.fetchOne();
-			int min_x = row[0];
-
-			myResult = espTable.select("MAX(x)").execute();
-			row = myResult.fetchOne();
-			int max_x = row[0];
-
-			myResult = espTable.select("MIN(y)").execute();
-			row = myResult.fetchOne();
-			int min_y = row[0];
-
-			myResult = espTable.select("MAX(y)").execute();
-			row = myResult.fetchOne();
-			int max_y = row[0];
-
-			//Pass through all the packets
-			for (int current_id = first_id; current_id <= last_id; current_id++) {
-
-				x.clear();
-				y.clear();
-				d.clear();
-
-				//Check if the current packet has already been triangulated ( 1 => YES  ;  0 ==> NO )
-				myResult = packetTable.select("triangulated").where("id=:current_id").bind("current_id", current_id).execute();
-				row = myResult.fetchOne();
-				uint32_t t = (uint32_t)row[0];
-
-				//std::cout << "Triangulated = " << t << std::endl;
-
-				if (!t) { //the current packet has not been triangulated yet
-
-				    //Get Hash and MAC address of the current packet
-					myResult = packetTable.select("hash", "addr").where("id=:current_id").bind("current_id", current_id).execute();
-					row = myResult.fetchOne();
-					uint32_t current_hash = (uint32_t)row[0];
-					std::string current_address = row[1];
-
-					std::cout << " Hash " << current_hash << " with MAC " << current_address;
-
-					//Count how many ESPs have received this packet (this hash)
-					myResult = packetTable.select("count(DISTINCT(esp_id))").where("hash=:current_hash").bind("current_hash", current_hash).execute();
-					row = myResult.fetchOne();
-					uint32_t counter = (uint32_t)row[0];
-
-					std::cout << " (received by " << counter << " ESPs)";
-
-					if (counter >= ESP_THRESHOLD) { //the packet has been received by at least 3 ESPs (Note: change this value in debug/testing)
-
-						//Get the ESP-ID and the RSSI from *ALL* the ESPs which have received the packet
-						//N.B.: this query gives multiple rows --> one row for each ESP which has received the packet
-						mysqlx::RowResult multipleQueryResult = packetTable.select("esp_id", "rssi").where("hash=:current_hash").bind("current_hash", current_hash).execute();
-
-						std::cout << std::endl << "  Current ESP values:" << std::endl;
-
-						for (mysqlx::Row rows : multipleQueryResult.fetchAll()) {
-							uint32_t current_esp_id = (uint32_t)rows[0];
-							int current_rssi = (int)rows[1];
-							
-							std::cout << "   ESP-ID=" << current_esp_id << ", RSSI=" << current_rssi;
-
-							//Get the coordinates of the ESP who has received the current packet
-							myResult = espTable.select("x", "y").where("esp_id=:current_esp_id").bind("current_esp_id", current_esp_id).execute();
-							row = myResult.fetchOne();
-							int current_esp_x = (int)row[0];
-							int current_esp_y = (int)row[1];
-
-							//Estimate the distance from the RSSI
-							double current_distance = getDistanceFromRSSI(current_rssi);
-
-							std::cout << ", X=" << current_esp_x << ", Y=" << current_esp_y << ", Distance=" << current_distance << std::endl;
-
-							//Add the values in each vector
-							x.push_back(current_esp_x);
-							y.push_back(current_esp_y);
-							d.push_back(current_distance);
-						}
-						//Triangulate the device with the current MAC address getting its coordinates pos_x and pos_y
-						getCoordinates(&pos_x, &pos_y);
-
-						//Check if the device triangulated is inside the perimeter, if so add it in the database
-						if ((pos_x > min_x) && (pos_x < max_x) && (pos_y > min_y) && (pos_y < max_y)) {
-							devicesTable.insert("mac", "x", "y").values(current_address, pos_x, pos_y).execute();
-							std::cout << "    Coordinates of " << current_address << " : X=" << pos_x << ", Y=" << pos_y << std::endl << std::endl;
-						}
-						else
-							std::cout << "    Coordinates of " << current_address << " : X=" << pos_x << ", Y=" << pos_y << " ==> out of perimiter" << std::endl << std::endl;
-					}
-					else
-						std::cout << " ==> this packet won't be triangulated" << std::endl << std::endl;
-					//Set as "already triangulated" (triangulated = 1) all the packets with the current hash
-					packetTable.update().set("triangulated", 1).where("hash=:current_hash").bind("current_hash", current_hash).execute();
-				}
-			}
-		}
-		catch (std::exception &err) {
-			std::cout << "The following error occurred: " << err.what() << std::endl;
-			exit(1);
-		}
-	}
-	catch (std::exception &err) {
-		std::cout << "The database session could not be opened: " << err.what() << std::endl;
-		exit(1);
-	}
-}
-
-//Method that calls the triangulation method when needed in a thread-safe modestd::cout << "    Coordinates of " << current_address << " : X=" << pos_x << ", Y=" << pos_y << std::endl << std::endl;
-void TCPServer::TCPS_triangulate() {
-	while (1) {
-		{
-			std::unique_lock<std::mutex> ul(triang_mtx);
-			triang_cvar.wait(ul, [this]() { return esp_to_wait == 0; });
-
-			esp_to_wait = esp_number;
-		}
-
-		try {
-			mysqlx::Session session("localhost", 33060, "pds_user", "password");
-			try {
-				mysqlx::Schema myDb = session.getSchema("pds_db");
-
-				mysqlx::Table packetTable = myDb.getTable("Packet");
-
-				mysqlx::RowResult myResult;
-				mysqlx::Row row;
-
-				//The first ID on which we start the triangulation will be the first of the new capture (last + 1)
-				first_id = last_id + 1;
-
-				//Get the last(the maximum) packet-ID of the sequence
-				myResult = packetTable.select("MAX(id)").execute();
-				row = myResult.fetchOne();
-				last_id = (int)row[0];
-
-				std::cout << std::endl << "Current capture (in database): from ID=" << first_id << " to ID=" << last_id << std::endl << std::endl;
-			}
-			catch (std::exception &err) {
-				std::cout << "The following error occurred: " << err.what() << std::endl;
-				exit(1);
-			}
-		}
-		catch (std::exception &err) {
-			std::cout << "The database session could not be opened: " << err.what() << std::endl;
-			exit(1);
-		}
-
-		//call the triangolation method on the packets just stored (new packets)
-		triangulation(first_id, last_id);
-		//triangulation(1, 5); //per triangolare solo i pacchetti con il primo hash ricevuto 
-	}	
-}*/
 
 //Method that calls the triangulation method when needed in a thread-safe modestd::cout << "    Coordinates of " << current_address << " : X=" << pos_x << ", Y=" << pos_y << std::endl << std::endl;
 void TCPServer::TCPS_process_packets() {
@@ -829,5 +669,7 @@ void TCPServer::TCPS_process_packets() {
 		}
 
 		pckt_rfn.process();
+
+		std::cout << "Finished processing packets " << std::endl;
 	}
 }

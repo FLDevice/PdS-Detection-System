@@ -185,6 +185,9 @@
   <ItemGroup>
     <ResourceCompile Include="PDS_Detection_System.rc" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="rssi_div.txt" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

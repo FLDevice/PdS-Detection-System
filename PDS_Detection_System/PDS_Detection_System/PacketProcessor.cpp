@@ -1,6 +1,10 @@
 #include "stdafx.h"
 #include "PacketProcessor.h"
+#include <iostream>
+#include <iomanip>
+#include <fstream>
 
+std::string fileUrl = "rssi_div.txt";
 std::vector<int> x;
 std::vector<int> y;
 std::vector<double> d;
@@ -8,12 +12,42 @@ std::vector<double> d;
 PacketProcessor::PacketProcessor(int count)
 {
 	esp_number = count;
+	readRssiParam();
+}
+
+void PacketProcessor::readRssiParam() {
+	std::ifstream inFile;
+	int count = 1;
+	double x;
+
+	inFile.open(fileUrl);
+	if (!inFile) {
+		std::cout << "Unable to open file";
+		exit(1); // terminate with error
+	}
+
+	while (inFile >> x) {
+		switch (count)
+		{
+		case 1:
+			rssiAtOneMeter = x;
+			break;
+		case 2:
+			rssiDiv = x;
+			break;
+		default:
+			break;
+		}
+
+		count++;
+	}
+
+	inFile.close();
 }
 
 //Method that estimates the distance (in meters) starting from the RSSI
 double PacketProcessor::getDistanceFromRSSI(double rssi) {
-	double rssiAtOneMeter = -52;
-	double d = pow(10, (rssiAtOneMeter - rssi) / 20);
+	double d = pow(10, (rssiAtOneMeter - rssi) / rssiDiv);
 	return d;
 }
 
@@ -77,6 +111,7 @@ void PacketProcessor::process() {
 			mysqlx::Table packetTable = myDb.getTable("Packet");
 			mysqlx::Table espTable = myDb.getTable("ESP");
 			mysqlx::Table devicesTable = myDb.getTable("Devices");
+			mysqlx::Table localMacsTable = myDb.getTable("Local_Macs");
 
 			mysqlx::RowResult retrievedPackets;
 			mysqlx::Row row;
@@ -91,9 +126,9 @@ void PacketProcessor::process() {
 				//Count how many ESPs have received this packet (this hash)
 				mysqlx::RowResult hashCount = packetTable.select("count(DISTINCT(esp_id))").where("hash=:current_hash AND to_be_deleted = 0").bind("current_hash", current_hash).execute();
 				row = hashCount.fetchOne();
-				uint32_t counter = (uint32_t)row[0];
+				int counter = row[0];
 
-				if (counter >= esp_number) { //floor(esp_number / 2) + 1) { //the packet has been received by at least 3 ESPs (Note: change this value in debug/testing)
+				if (((esp_number < 4)&&(counter == esp_number)) || ((esp_number >= 4) && (counter >= floor(esp_number / 2) + 1))) { //floor(esp_number / 2) + 1) { //the packet has been received by at least 3 ESPs (Note: change this value in debug/testing)
 					uint64_t average_timestamp = 0;
 					int count = 0;
 
@@ -101,16 +136,16 @@ void PacketProcessor::process() {
 					//N.B.: this query gives multiple rows --> one row for each ESP which has received the packet
 					mysqlx::RowResult multiple_query_result = packetTable.select("esp_id", "rssi", "unix_timestamp(timestamp)").where("hash=:current_hash").bind("current_hash", current_hash).execute();
 
-					std::cout << " Hash " << current_hash << " with MAC " << current_address;
-					std::cout << " (received by " << counter << " ESPs)";
-					std::cout << std::endl << "  Current ESP values:" << std::endl;
+					//std::cout << " Hash " << current_hash << " with MAC " << current_address;
+					//std::cout << " (received by " << counter << " ESPs)";
+					//std::cout << std::endl << "  Current ESP values:" << std::endl;
 
 					for (mysqlx::Row rows : multiple_query_result.fetchAll()) {
 						uint32_t current_esp_id = (uint32_t)rows[0];
 						int current_rssi = (int)rows[1];
 						average_timestamp += (uint64_t)rows[2];
 
-						std::cout << "   ESP-ID=" << current_esp_id << ", RSSI=" << current_rssi;
+						//std::cout << "   ESP-ID=" << current_esp_id << ", RSSI=" << current_rssi;
 
 						//Get the coordinates of the ESP who has received the current packet
 						mysqlx::RowResult esp_coordinates = espTable.select("x", "y").where("esp_id=:current_esp_id").bind("current_esp_id", current_esp_id).execute();
@@ -121,7 +156,7 @@ void PacketProcessor::process() {
 						//Estimate the distance from the RSSI
 						double current_distance = getDistanceFromRSSI(current_rssi);
 
-						std::cout << ", X=" << current_esp_x << ", Y=" << current_esp_y << ", Distance=" << current_distance << std::endl;
+						//std::cout << ", X=" << current_esp_x << ", Y=" << current_esp_y << ", Distance=" << current_distance << std::endl;
 
 						//Add the values in each vector
 						x.push_back(current_esp_x);
@@ -146,15 +181,26 @@ void PacketProcessor::process() {
 					char average_time[20];
 					localtime_s(&timeinfo, &rawtime);
 					strftime(average_time, 20, "%F %T", &timeinfo);
+					
+					//Check if (source) MAC address is local and unicast
+					int local = 0;
+					int firstByteMAC = std::stol(current_address.substr(0, 2), nullptr, 16);
+					int mask1 = 0b00000010; // global/local bit
+					int mask2 = 0b00000001; // unicast/multicast bit 
+					if ((firstByteMAC & mask1) && !(firstByteMAC & mask2))
+						local = 1; //local MAC
 
 					if (ca.isInside(pos_x, pos_y)) {
-						devicesTable.insert("mac", "x", "y", "timestamp").values(current_address, pos_x, pos_y, average_time).execute();
-						std::cout << "    Device within the coverage area." << std::endl;
-						std::cout << "    Coordinates of " << current_address << " : X=" << pos_x << ", Y=" << pos_y << std::endl << std::endl;
+						if (local)
+							localMacsTable.insert("mac", "x", "y", "timestamp").values(current_address, pos_x, pos_y, average_time).execute();
+						else
+							devicesTable.insert("mac", "x", "y", "timestamp").values(current_address, pos_x, pos_y, average_time).execute();
+						//std::cout << "    Device within the coverage area." << std::endl;
+						//std::cout << "    Coordinates of " << current_address << " : X=" << pos_x << ", Y=" << pos_y << std::endl << std::endl;
 					}
 					else {
-						std::cout << "    The device is outside the coverage area, hence it won't be inserted in the device table." << std::endl;
-						std::cout << "    Coordinates of " << current_address << " : X=" << pos_x << ", Y=" << pos_y << std::endl << std::endl;
+						//std::cout << "    The device is outside the coverage area, hence it won't be inserted in the device table." << std::endl;
+						//std::cout << "    Coordinates of " << current_address << " : X=" << pos_x << ", Y=" << pos_y << std::endl << std::endl;
 					}
 					
 					// Remove all the packets that were trilaterated
@@ -162,9 +208,9 @@ void PacketProcessor::process() {
 					//packetTable.remove().where("hash=:current_hash").bind("current_hash", current_hash).execute();
 				}
 				else if (counter != 0) {
-					std::cout << " Hash " << current_hash << " with MAC " << current_address;
-					std::cout << " (received by " << counter << " ESPs)";
-					std::cout << " ==> this packet won't be trilaterated" << std::endl;
+					//std::cout << " Hash " << current_hash << " with MAC " << current_address;
+					//std::cout << " (received by " << counter << " ESPs)";
+					//std::cout << " ==> this packet won't be trilaterated" << std::endl;
 
 					mysqlx::RowResult timestamp_result = packetTable.select("unix_timestamp(timestamp)").where("hash=:current_hash").bind("current_hash", current_hash).execute();
 					row = timestamp_result.fetchOne();
@@ -174,7 +220,7 @@ void PacketProcessor::process() {
 					//If the packet has been received more than 2 minutes ago then delete it
 					if ( static_cast<uint64_t> (time(NULL)) - ts > 30) {
 						packetTable.update().set("to_be_deleted", 1).where("hash=:current_hash").bind("current_hash", current_hash).execute();
-						std::cout << " ==> Packet is too old and it will be deleted." << std::endl << std::endl;
+						//std::cout << " ==> Packet is too old and it will be deleted." << std::endl << std::endl;
 					}
 					//packetTable.remove().where("hash=:current_hash AND TIMESTAMPDIFF(MINUTE, '2018-09-10', '2018-05-01') > 2").bind("current_hash", current_hash).execute();
 				}

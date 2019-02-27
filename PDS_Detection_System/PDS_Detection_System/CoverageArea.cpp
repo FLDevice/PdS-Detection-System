@@ -23,12 +23,12 @@ CoverageArea::CoverageArea()
 			}
 		}
 		catch (std::exception &err) {
-			std::cout << "The following error occurred: " << err.what() << std::endl;
+			//std::cout << "The following error occurred: " << err.what() << std::endl;
 			exit(1);
 		}
 	}
 	catch (std::exception &err) {
-		std::cout << "The database session could not be opened: " << err.what() << std::endl;
+		//std::cout << "The database session could not be opened: " << err.what() << std::endl;
 		exit(1);
 	}
 }
@@ -50,8 +50,8 @@ bool CoverageArea::onSegment(Point p, Point q, Point r)
 // 2 --> Counterclockwise 
 int CoverageArea::orientation(Point p, Point q, Point r)
 {
-	int val = (q.y - p.y) * (r.x - q.x) -
-		(q.x - p.x) * (r.y - q.y);
+	int val = (int) ( (q.y - p.y) * (r.x - q.x) -
+		(q.x - p.x) * (r.y - q.y) );
 
 	if (val == 0) return 0;  // colinear 
 	return (val > 0) ? 1 : 2; // clock or counterclock wise 

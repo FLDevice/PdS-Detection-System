@@ -137,6 +137,7 @@ class TCPServer {
 
 protected:
 
+	const wchar_t* PIPENAME = TEXT("\\\\.\\pipe\\pds_detection_system");
 	const int FIRST_READY_PORT = 3011;
 	const char INIT_MSG_H[5] = "INIT";
 	const char READY_MSG_H[6] = "READY";
@@ -158,6 +159,7 @@ protected:
 	// thread-safe queue to store esp32 sniffed packets
 	BlockingQueue<ProbePacket> pp_vector;
 
+	HANDLE namedPipe;
 	WSADATA wsadata;
 
 	// sockets
@@ -176,9 +178,13 @@ protected:
 
 public:
 
-	TCPServer();
+	TCPServer(long int should_erase_db, long int espn, std::vector<long int> vec);
 
 private:
+
+	/** connects to the pipe created by the GUI application, may throw exception */
+	void TCPS_pipe_send(const char* message);
+
 	/** initialize winsock, may throw exception */
 	void TCPS_initialize();
 
@@ -192,7 +198,7 @@ private:
 	void TCPS_listen();
 
 	/** listen for ESP32 joining requests */
-	void TCPS_ask_participation();
+	void TCPS_ask_participation(std::vector<long int> vec, long int should_erase_db);
 
 	/** create a connection with the ESP32 to notify when the server is ready */
 	void TCPS_ready_channel(int esp_id);
@@ -214,7 +220,7 @@ private:
 	* Create the table used to store the packets.
 	*
 	* !!! Currently everytime the program is run the database is reinitialized. */
-	void setupDB();
+	void setupDB(long int should_erase_db);
 
 	void storePackets(int count, int esp_id, char* recvbuf);
 
